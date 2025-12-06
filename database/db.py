@@ -5,7 +5,12 @@ Database Connection and Initialization
 import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
-from database.models import Base, User, Category, Product, Menu, MenuItem, StockTransaction, Sale, SaleItem
+from database.models import (
+    Base, User, Category, Product, Menu, MenuItem, StockTransaction, 
+    Sale, SaleItem, Customer, Membership, LoyaltyTransaction, Coupon, CouponUsage,
+    EmployeeShift, Attendance, Expense, ExpenseCategory, Promotion, PromotionRule, PromotionUsage,
+    Branch, StockTransfer, Supplier, PurchaseOrder, PurchaseOrderItem, Batch
+)
 import bcrypt
 
 # Database path
@@ -53,12 +58,38 @@ def init_db():
             # Update existing records: final_amount = total_amount
             conn.execute(text("UPDATE sales SET final_amount = total_amount WHERE final_amount = 0"))
         
+        # Add new columns for CRM and cashless payment
+        if 'customer_id' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN customer_id INTEGER"))
+            conn.execute(text("ALTER TABLE sales ADD COLUMN payment_reference TEXT"))
+            conn.execute(text("ALTER TABLE sales ADD COLUMN points_earned FLOAT DEFAULT 0"))
+            conn.execute(text("ALTER TABLE sales ADD COLUMN points_used FLOAT DEFAULT 0"))
+        
+        # Add tax columns
+        if 'tax_rate' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN tax_rate FLOAT DEFAULT 0"))
+            conn.execute(text("ALTER TABLE sales ADD COLUMN tax_amount FLOAT DEFAULT 0"))
+            conn.execute(text("ALTER TABLE sales ADD COLUMN subtotal FLOAT DEFAULT 0"))
+        
+        # Update payment_method to support new payment types
+        # Note: SQLite doesn't support ALTER COLUMN, so we'll handle this in application code
+        
         # Check sale_items table columns
         result_items = conn.execute(text("PRAGMA table_info(sale_items)"))
         item_columns = [row[1] for row in result_items]
         
         if 'discount_amount' not in item_columns:
             conn.execute(text("ALTER TABLE sale_items ADD COLUMN discount_amount FLOAT DEFAULT 0"))
+        
+        # Check products table columns
+        result_products = conn.execute(text("PRAGMA table_info(products)"))
+        product_columns = [row[1] for row in result_products]
+        
+        if 'branch_id' not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN branch_id INTEGER"))
+        
+        if 'reorder_point' not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN reorder_point FLOAT DEFAULT 0"))
         
         conn.commit()
         conn.close()

@@ -5,8 +5,16 @@ Settings Page - ตั้งค่าระบบ
 import streamlit as st
 import os
 import shutil
-from datetime import datetime
-from database.db import DB_PATH, DB_DIR
+from datetime import datetime, timedelta
+from database.db import DB_PATH, DB_DIR, get_session
+from database.models import Expense, ExpenseCategory, Promotion, PromotionRule, Product, Menu, Category
+from utils.expense import (
+    get_expenses_by_date_range, get_expense_summary, get_daily_expenses,
+    create_expense_category, get_all_expense_categories
+)
+from utils.helpers import format_currency
+import pandas as pd
+import plotly.express as px
 
 st.set_page_config(page_title="ตั้งค่า", page_icon="⚙️", layout="wide")
 
@@ -24,7 +32,10 @@ def main():
         return
     
     # Tabs
-    tab1, tab2, tab3 = st.tabs(["🏪 ตั้งค่าร้าน", "🧾 ตั้งค่าใบเสร็จ", "💾 สำรองข้อมูล"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🏪 ตั้งค่าร้าน", "🧾 ตั้งค่าใบเสร็จ", "💾 สำรองข้อมูล", 
+        "💰 จัดการค่าใช้จ่าย", "🎁 จัดการโปรโมชั่น"
+    ])
     
     with tab1:
         st.subheader("🏪 ตั้งค่าร้าน")
@@ -182,6 +193,365 @@ def main():
             conn.close()
         except Exception as e:
             st.error(f"❌ ไม่สามารถอ่านข้อมูลฐานข้อมูล: {str(e)}")
+    
+    with tab4:
+        st.subheader("💰 จัดการค่าใช้จ่าย")
+        
+        expense_tab1, expense_tab2, expense_tab3 = st.tabs(["📝 บันทึกค่าใช้จ่าย", "📊 รายงานค่าใช้จ่าย", "📁 จัดการหมวดหมู่"])
+        
+        with expense_tab1:
+            # Add expense
+            with st.expander("➕ เพิ่มค่าใช้จ่าย", expanded=True):
+                with st.form("add_expense_form"):
+                    categories = get_all_expense_categories()
+                    if categories:
+                        category_options = {cat.id: cat.name for cat in categories}
+                        selected_category_id = st.selectbox(
+                            "หมวดหมู่ *",
+                            options=list(category_options.keys()),
+                            format_func=lambda x: category_options[x],
+                            key="expense_category_select"
+                        )
+                    else:
+                        st.warning("⚠️ ยังไม่มีหมวดหมู่ค่าใช้จ่าย กรุณาสร้างหมวดหมู่ก่อน")
+                        selected_category_id = None
+                    
+                    expense_amount = st.number_input("จำนวนเงิน (฿) *", min_value=0.0, step=10.0, value=0.0, key="expense_amount_input")
+                    expense_date = st.date_input("วันที่ *", value=datetime.now().date(), key="expense_date_input")
+                    expense_description = st.text_area("คำอธิบาย", placeholder="รายละเอียดค่าใช้จ่าย...", key="expense_desc_input")
+                    
+                    if st.form_submit_button("➕ เพิ่มค่าใช้จ่าย", type="primary", use_container_width=True):
+                        if selected_category_id and expense_amount > 0:
+                            session = get_session()
+                            try:
+                                expense = Expense(
+                                    category_id=selected_category_id,
+                                    amount=expense_amount,
+                                    description=expense_description if expense_description else None,
+                                    expense_date=datetime.combine(expense_date, datetime.min.time()),
+                                    created_by=st.session_state.user_id
+                                )
+                                session.add(expense)
+                                session.commit()
+                                st.success(f"✅ บันทึกค่าใช้จ่าย {format_currency(expense_amount)} สำเร็จ")
+                                st.rerun()
+                            except Exception as e:
+                                session.rollback()
+                                st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+                            finally:
+                                session.close()
+                        else:
+                            st.warning("⚠️ กรุณากรอกหมวดหมู่และจำนวนเงิน")
+            
+            # Expense list
+            st.divider()
+            st.write("**📋 รายการค่าใช้จ่าย**")
+            
+            col_start, col_end = st.columns(2)
+            with col_start:
+                expense_start_date = st.date_input("วันที่เริ่มต้น", value=datetime.now().date() - timedelta(days=30), key="expense_list_start")
+            with col_end:
+                expense_end_date = st.date_input("วันที่สิ้นสุด", value=datetime.now().date(), key="expense_list_end")
+            
+            expenses = get_expenses_by_date_range(
+                datetime.combine(expense_start_date, datetime.min.time()),
+                datetime.combine(expense_end_date, datetime.max.time())
+            )
+            
+            if expenses:
+                expense_data = []
+                for exp in expenses:
+                    expense_data.append({
+                        'วันที่': exp.expense_date.strftime('%d/%m/%Y'),
+                        'หมวดหมู่': exp.category.name,
+                        'จำนวนเงิน': format_currency(exp.amount),
+                        'คำอธิบาย': exp.description or '-',
+                        'ผู้บันทึก': exp.creator.username if exp.creator else '-'
+                    })
+                
+                df = pd.DataFrame(expense_data)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+                
+                # Total
+                total_expenses = sum(e.amount for e in expenses)
+                st.metric("💰 ค่าใช้จ่ายรวม", format_currency(total_expenses))
+            else:
+                st.info("ไม่มีค่าใช้จ่ายในช่วงเวลานี้")
+        
+        with expense_tab2:
+            st.write("**📊 รายงานค่าใช้จ่าย**")
+            
+            report_start, report_end = st.columns(2)
+            with report_start:
+                report_start_date = st.date_input("วันที่เริ่มต้น", value=datetime.now().date() - timedelta(days=30), key="expense_report_start")
+            with report_end:
+                report_end_date = st.date_input("วันที่สิ้นสุด", value=datetime.now().date(), key="expense_report_end")
+            
+            summary = get_expense_summary(
+                datetime.combine(report_start_date, datetime.min.time()),
+                datetime.combine(report_end_date, datetime.max.time())
+            )
+            
+            # Metrics
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("💰 ค่าใช้จ่ายรวม", format_currency(summary['total']))
+            with col2:
+                st.metric("📁 จำนวนหมวดหมู่", len(summary['by_category']))
+            
+            # Chart by category
+            if summary['by_category']:
+                st.divider()
+                st.write("**📊 ค่าใช้จ่ายตามหมวดหมู่**")
+                
+                df_category = pd.DataFrame(summary['by_category'])
+                fig = px.pie(
+                    df_category,
+                    values='total',
+                    names='name',
+                    title="ค่าใช้จ่ายตามหมวดหมู่"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Table
+                df_category['total'] = df_category['total'].apply(lambda x: format_currency(x))
+                df_category.columns = ['ID', 'หมวดหมู่', 'จำนวนเงิน']
+                st.dataframe(df_category[['หมวดหมู่', 'จำนวนเงิน']], use_container_width=True, hide_index=True)
+            
+            # Daily expenses chart
+            st.divider()
+            st.write("**📈 ค่าใช้จ่ายรายวัน**")
+            daily_expenses = get_daily_expenses(
+                datetime.combine(report_start_date, datetime.min.time()),
+                datetime.combine(report_end_date, datetime.max.time())
+            )
+            
+            if daily_expenses:
+                df_daily = pd.DataFrame(daily_expenses)
+                df_daily['date'] = pd.to_datetime(df_daily['date'])
+                
+                fig = px.line(
+                    df_daily,
+                    x='date',
+                    y='total',
+                    labels={'date': 'วันที่', 'total': 'ค่าใช้จ่าย (฿)'},
+                    title="ค่าใช้จ่ายรายวัน"
+                )
+                fig.update_layout(height=400, hovermode='x unified')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("ไม่มีข้อมูลค่าใช้จ่าย")
+        
+        with expense_tab3:
+            st.write("**📁 จัดการหมวดหมู่ค่าใช้จ่าย**")
+            
+            # Add category
+            with st.expander("➕ เพิ่มหมวดหมู่"):
+                with st.form("add_category_form"):
+                    cat_name = st.text_input("ชื่อหมวดหมู่ *", placeholder="เช่น ค่าเช่า, ค่าไฟ, วัตถุดิบ...", key="new_category_name")
+                    cat_description = st.text_area("คำอธิบาย", placeholder="รายละเอียดหมวดหมู่...", key="new_category_desc")
+                    
+                    if st.form_submit_button("➕ เพิ่มหมวดหมู่", type="primary", use_container_width=True):
+                        if cat_name:
+                            result = create_expense_category(cat_name, cat_description if cat_description else None)
+                            if result:
+                                st.success(f"✅ เพิ่มหมวดหมู่ {cat_name} สำเร็จ")
+                                st.rerun()
+                            else:
+                                st.error("❌ ไม่สามารถเพิ่มหมวดหมู่ได้")
+                        else:
+                            st.warning("⚠️ กรุณากรอกชื่อหมวดหมู่")
+            
+            # Category list
+            st.divider()
+            st.write("**📋 รายการหมวดหมู่**")
+            
+            categories = get_all_expense_categories()
+            if categories:
+                for cat in categories:
+                    with st.expander(f"📁 {cat.name}"):
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"**คำอธิบาย:** {cat.description or '-'}")
+                            st.write(f"**สถานะ:** {'เปิดใช้งาน' if cat.is_active else 'ปิดใช้งาน'}")
+                        with col2:
+                            if st.button("🗑️ ลบ", key=f"delete_category_{cat.id}", use_container_width=True):
+                                session = get_session()
+                                try:
+                                    # Check if category has expenses
+                                    expense_count = session.query(Expense).filter(Expense.category_id == cat.id).count()
+                                    if expense_count > 0:
+                                        st.warning(f"⚠️ ไม่สามารถลบได้ มีค่าใช้จ่าย {expense_count} รายการ")
+                                    else:
+                                        session.delete(cat)
+                                        session.commit()
+                                        st.success(f"✅ ลบหมวดหมู่ {cat.name} สำเร็จ")
+                                        st.rerun()
+                                except Exception as e:
+                                    session.rollback()
+                                    st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+                                finally:
+                                    session.close()
+            else:
+                st.info("ยังไม่มีหมวดหมู่ค่าใช้จ่าย")
+                
+                # Create default categories
+                if st.button("➕ สร้างหมวดหมู่เริ่มต้น", use_container_width=True):
+                    default_categories = [
+                        ("ค่าเช่า", "ค่าเช่าร้าน"),
+                        ("ค่าไฟ", "ค่าไฟฟ้า"),
+                        ("ค่าน้ำ", "ค่าน้ำประปา"),
+                        ("วัตถุดิบ", "ซื้อวัตถุดิบ"),
+                        ("ค่าจ้าง", "ค่าจ้างพนักงาน"),
+                        ("อื่นๆ", "ค่าใช้จ่ายอื่นๆ")
+                    ]
+                    
+                    created = 0
+                    for name, desc in default_categories:
+                        result = create_expense_category(name, desc)
+                        if result:
+                            created += 1
+                    
+                    if created > 0:
+                        st.success(f"✅ สร้างหมวดหมู่เริ่มต้น {created} หมวดหมู่สำเร็จ")
+                        st.rerun()
+    
+    with tab5:
+        st.subheader("🎁 จัดการโปรโมชั่น")
+        
+        # Add promotion
+        with st.expander("➕ เพิ่มโปรโมชั่น", expanded=False):
+            with st.form("add_promotion_form"):
+                promo_name = st.text_input("ชื่อโปรโมชั่น *", key="promo_name")
+                promo_description = st.text_area("คำอธิบาย", key="promo_desc")
+                promo_type = st.selectbox(
+                    "ประเภทโปรโมชั่น *",
+                    ["discount", "buy_x_get_y", "time_based", "member_only"],
+                    format_func=lambda x: {
+                        "discount": "ส่วนลด",
+                        "buy_x_get_y": "ซื้อ X แถม Y",
+                        "time_based": "ตามเวลา",
+                        "member_only": "สมาชิกเท่านั้น"
+                    }[x],
+                    key="promo_type_select"
+                )
+                
+                discount_type = None
+                discount_value = None
+                max_discount = None
+                buy_quantity = None
+                get_quantity = None
+                time_start = None
+                time_end = None
+                days_of_week = None
+                
+                if promo_type == "discount":
+                    discount_type = st.selectbox("ประเภทส่วนลด", ["percent", "fixed"], 
+                                                format_func=lambda x: "เปอร์เซ็นต์" if x == "percent" else "จำนวนเงิน",
+                                                key="promo_discount_type")
+                    discount_value = st.number_input("ค่าส่วนลด", min_value=0.0, step=1.0, key="promo_discount_value")
+                    if discount_type == "percent":
+                        max_discount = st.number_input("ส่วนลดสูงสุด (฿)", min_value=0.0, step=10.0, value=0.0, key="promo_max_discount")
+                        if max_discount == 0:
+                            max_discount = None
+                elif promo_type == "buy_x_get_y":
+                    buy_quantity = st.number_input("ซื้อ (X)", min_value=1, step=1, value=1, key="promo_buy_qty")
+                    get_quantity = st.number_input("แถม (Y)", min_value=1, step=1, value=1, key="promo_get_qty")
+                elif promo_type == "time_based":
+                    time_start = st.time_input("เวลาเริ่ม", value=datetime.now().time(), key="promo_time_start")
+                    time_end = st.time_input("เวลาสิ้นสุด", value=datetime.now().time(), key="promo_time_end")
+                    days_of_week = st.multiselect(
+                        "วันในสัปดาห์",
+                        ["0", "1", "2", "3", "4", "5", "6"],
+                        format_func=lambda x: ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"][int(x)],
+                        key="promo_days"
+                    )
+                    days_of_week = ",".join(days_of_week) if days_of_week else None
+                
+                min_purchase = st.number_input("ยอดซื้อขั้นต่ำ (฿)", min_value=0.0, step=10.0, value=0.0, key="promo_min_purchase")
+                
+                col_start, col_end = st.columns(2)
+                with col_start:
+                    valid_from = st.date_input("วันที่เริ่มต้น", value=datetime.now().date(), key="promo_valid_from")
+                with col_end:
+                    valid_until = st.date_input("วันที่สิ้นสุด", value=datetime.now().date() + timedelta(days=30), key="promo_valid_until")
+                
+                if st.form_submit_button("➕ เพิ่มโปรโมชั่น", type="primary", use_container_width=True):
+                    if promo_name:
+                        session = get_session()
+                        try:
+                            promotion = Promotion(
+                                name=promo_name,
+                                description=promo_description if promo_description else None,
+                                promotion_type=promo_type,
+                                discount_type=discount_type,
+                                discount_value=discount_value,
+                                min_purchase=min_purchase,
+                                max_discount=max_discount,
+                                buy_quantity=buy_quantity,
+                                get_quantity=get_quantity,
+                                time_start=time_start.strftime('%H:%M') if time_start else None,
+                                time_end=time_end.strftime('%H:%M') if time_end else None,
+                                days_of_week=days_of_week,
+                                valid_from=datetime.combine(valid_from, datetime.min.time()),
+                                valid_until=datetime.combine(valid_until, datetime.max.time()),
+                                is_active=True
+                            )
+                            session.add(promotion)
+                            session.commit()
+                            st.success(f"✅ เพิ่มโปรโมชั่น {promo_name} สำเร็จ")
+                            st.rerun()
+                        except Exception as e:
+                            session.rollback()
+                            st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+                        finally:
+                            session.close()
+                    else:
+                        st.warning("⚠️ กรุณากรอกชื่อโปรโมชั่น")
+        
+        # Promotion list
+        st.divider()
+        st.write("**📋 รายการโปรโมชั่น**")
+        
+        session = get_session()
+        try:
+            promotions = session.query(Promotion).order_by(Promotion.created_at.desc()).all()
+            
+            if promotions:
+                for promo in promotions:
+                    status = "✅ เปิดใช้งาน" if promo.is_active else "❌ ปิดใช้งาน"
+                    with st.expander(f"🎁 {promo.name} ({status})"):
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.write(f"**ประเภท:** {promo.promotion_type}")
+                            if promo.description:
+                                st.write(f"**คำอธิบาย:** {promo.description}")
+                            st.write(f"**ยอดซื้อขั้นต่ำ:** {format_currency(promo.min_purchase)}")
+                            st.write(f"**วันที่เริ่ม:** {promo.valid_from.strftime('%d/%m/%Y')}")
+                            st.write(f"**วันที่สิ้นสุด:** {promo.valid_until.strftime('%d/%m/%Y')}")
+                        with col2:
+                            if promo.is_active:
+                                if st.button("❌ ปิดใช้งาน", key=f"deactivate_promo_{promo.id}", use_container_width=True):
+                                    promo.is_active = False
+                                    session.commit()
+                                    st.success("✅ ปิดใช้งานโปรโมชั่นสำเร็จ")
+                                    st.rerun()
+                            else:
+                                if st.button("✅ เปิดใช้งาน", key=f"activate_promo_{promo.id}", use_container_width=True):
+                                    promo.is_active = True
+                                    session.commit()
+                                    st.success("✅ เปิดใช้งานโปรโมชั่นสำเร็จ")
+                                    st.rerun()
+                            
+                            if st.button("🗑️ ลบ", key=f"delete_promo_{promo.id}", use_container_width=True):
+                                session.delete(promo)
+                                session.commit()
+                                st.success("✅ ลบโปรโมชั่นสำเร็จ")
+                                st.rerun()
+            else:
+                st.info("ยังไม่มีโปรโมชั่น")
+        finally:
+            session.close()
 
 if __name__ == "__main__":
     main()

@@ -8,9 +8,11 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import pandas as pd
 from database.db import get_session
-from database.models import Sale, SaleItem, Product, Menu
+from database.models import Sale, SaleItem, Product, Menu, Customer, Expense
+from utils.expense import get_expense_summary
 from sqlalchemy import func
 from utils.helpers import format_currency, calculate_menu_cost
+from utils.tax import get_tax_report, generate_tax_invoice
 import io
 
 st.set_page_config(page_title="รายงาน", page_icon="📈", layout="wide")
@@ -132,7 +134,11 @@ def main():
     with col2:
         end_date = st.date_input("วันที่สิ้นสุด", value=datetime.now().date())
     with col3:
-        report_type = st.selectbox("ประเภทรายงาน", ["ยอดขาย", "กำไร-ขาดทุน", "สินค้าขายดี", "สรุปภาพรวม"])
+        report_type = st.selectbox("ประเภทรายงาน", [
+            "ยอดขาย", "กำไร-ขาดทุน", "สินค้าขายดี", "สรุปภาพรวม",
+            "รายงานรายชั่วโมง", "เปรียบเทียบ", "พฤติกรรมลูกค้า", 
+            "กำไร-ขาดทุน (รวมค่าใช้จ่าย)", "รายงานภาษี"
+        ])
     
     start_datetime = datetime.combine(start_date, datetime.min.time())
     end_datetime = datetime.combine(end_date, datetime.max.time())
@@ -386,6 +392,276 @@ def main():
                     st.write(f"{idx}. {item['name']} - {item['quantity']:.0f} จาน")
             else:
                 st.info("ไม่มีข้อมูล")
+    
+    elif report_type == "รายงานรายชั่วโมง":
+        st.subheader("⏰ รายงานรายชั่วโมง (Peak Hours Analysis)")
+        
+        session = get_session()
+        try:
+            hourly_sales = session.query(
+                func.strftime('%H', Sale.sale_date).label('hour'),
+                func.sum(Sale.final_amount).label('total'),
+                func.count(Sale.id).label('count')
+            ).filter(
+                Sale.sale_date >= start_datetime,
+                Sale.sale_date <= end_datetime,
+                Sale.is_void == False
+            ).group_by(
+                func.strftime('%H', Sale.sale_date)
+            ).order_by(
+                func.strftime('%H', Sale.sale_date).asc()
+            ).all()
+            
+            if hourly_sales:
+                df_hourly = pd.DataFrame([
+                    {'ชั่วโมง': f"{int(h.hour):02d}:00", 'ยอดขาย': h.total or 0.0, 'จำนวน': h.count or 0}
+                    for h in hourly_sales
+                ])
+                
+                # Chart
+                fig = px.bar(
+                    df_hourly,
+                    x='ชั่วโมง',
+                    y='ยอดขาย',
+                    labels={'ชั่วโมง': 'เวลา', 'ยอดขาย': 'ยอดขาย (฿)'},
+                    title="ยอดขายรายชั่วโมง"
+                )
+                fig.update_layout(height=400, xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Table
+                df_hourly['ยอดขาย'] = df_hourly['ยอดขาย'].apply(lambda x: format_currency(x))
+                st.dataframe(df_hourly, use_container_width=True, hide_index=True)
+                
+                # Peak hours
+                peak_hour = df_hourly.loc[df_hourly['ยอดขาย'].str.replace('฿', '').str.replace(',', '').astype(float).idxmax()]
+                st.metric("⏰ ชั่วโมงที่ขายดีที่สุด", peak_hour['ชั่วโมง'])
+            else:
+                st.info("ไม่มีข้อมูลยอดขาย")
+        finally:
+            session.close()
+    
+    elif report_type == "เปรียบเทียบ":
+        st.subheader("📊 รายงานเปรียบเทียบ")
+        
+        compare_type = st.radio("เปรียบเทียบ", ["วัน", "เดือน", "ปี"], horizontal=True, key="compare_type")
+        
+        session = get_session()
+        try:
+            if compare_type == "วัน":
+                # Compare last 7 days
+                days_data = []
+                for i in range(7):
+                    day = (datetime.now() - timedelta(days=i)).date()
+                    day_start = datetime.combine(day, datetime.min.time())
+                    day_end = datetime.combine(day, datetime.max.time())
+                    day_report = get_sales_report(day_start, day_end)
+                    days_data.append({
+                        'วันที่': day.strftime('%d/%m/%Y'),
+                        'ยอดขาย': day_report['total_sales'],
+                        'กำไร': day_report['total_profit']
+                    })
+                
+                df_compare = pd.DataFrame(days_data)
+                df_compare = df_compare.sort_values('วันที่')
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=df_compare['วันที่'],
+                    y=df_compare['ยอดขาย'],
+                    name='ยอดขาย',
+                    line=dict(color='blue')
+                ))
+                fig.add_trace(go.Scatter(
+                    x=df_compare['วันที่'],
+                    y=df_compare['กำไร'],
+                    name='กำไร',
+                    line=dict(color='green')
+                ))
+                fig.update_layout(title="เปรียบเทียบยอดขาย 7 วันล่าสุด", height=400, hovermode='x unified')
+                st.plotly_chart(fig, use_container_width=True)
+                
+                df_compare['ยอดขาย'] = df_compare['ยอดขาย'].apply(lambda x: format_currency(x))
+                df_compare['กำไร'] = df_compare['กำไร'].apply(lambda x: format_currency(x))
+                st.dataframe(df_compare, use_container_width=True, hide_index=True)
+            
+            elif compare_type == "เดือน":
+                # Compare last 6 months
+                months_data = []
+                for i in range(6):
+                    month_date = datetime.now() - timedelta(days=30*i)
+                    month_start = datetime(month_date.year, month_date.month, 1)
+                    if month_date.month == 12:
+                        month_end = datetime(month_date.year + 1, 1, 1) - timedelta(days=1)
+                    else:
+                        month_end = datetime(month_date.year, month_date.month + 1, 1) - timedelta(days=1)
+                    
+                    month_report = get_sales_report(month_start, month_end)
+                    months_data.append({
+                        'เดือน': month_start.strftime('%m/%Y'),
+                        'ยอดขาย': month_report['total_sales'],
+                        'กำไร': month_report['total_profit']
+                    })
+                
+                df_compare = pd.DataFrame(months_data)
+                df_compare = df_compare.sort_values('เดือน')
+                
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=df_compare['เดือน'], y=df_compare['ยอดขาย'], name='ยอดขาย'))
+                fig.add_trace(go.Bar(x=df_compare['เดือน'], y=df_compare['กำไร'], name='กำไร'))
+                fig.update_layout(title="เปรียบเทียบยอดขาย 6 เดือนล่าสุด", height=400, barmode='group')
+                st.plotly_chart(fig, use_container_width=True)
+                
+                df_compare['ยอดขาย'] = df_compare['ยอดขาย'].apply(lambda x: format_currency(x))
+                df_compare['กำไร'] = df_compare['กำไร'].apply(lambda x: format_currency(x))
+                st.dataframe(df_compare, use_container_width=True, hide_index=True)
+        finally:
+            session.close()
+    
+    elif report_type == "พฤติกรรมลูกค้า":
+        st.subheader("👥 รายงานพฤติกรรมลูกค้า")
+        
+        session = get_session()
+        try:
+            # Top customers
+            top_customers = session.query(
+                Customer.id,
+                Customer.name,
+                Customer.phone,
+                func.count(Sale.id).label('visit_count'),
+                func.sum(Sale.final_amount).label('total_spent'),
+                func.avg(Sale.final_amount).label('avg_spent')
+            ).join(
+                Sale, Sale.customer_id == Customer.id
+            ).filter(
+                Sale.sale_date >= start_datetime,
+                Sale.sale_date <= end_datetime,
+                Sale.is_void == False
+            ).group_by(
+                Customer.id, Customer.name, Customer.phone
+            ).order_by(
+                func.sum(Sale.final_amount).desc()
+            ).limit(20).all()
+            
+            if top_customers:
+                st.write("**🏆 ลูกค้าที่ซื้อมากที่สุด**")
+                customer_data = []
+                for cust in top_customers:
+                    customer_data.append({
+                        'ชื่อ': cust.name,
+                        'เบอร์โทร': cust.phone or '-',
+                        'จำนวนครั้ง': cust.visit_count or 0,
+                        'ยอดซื้อรวม': format_currency(cust.total_spent or 0.0),
+                        'ยอดซื้อเฉลี่ย': format_currency(cust.avg_spent or 0.0)
+                    })
+                
+                df_customers = pd.DataFrame(customer_data)
+                st.dataframe(df_customers, use_container_width=True, hide_index=True)
+                
+                # Chart
+                fig = px.bar(
+                    df_customers.head(10),
+                    x='ชื่อ',
+                    y='ยอดซื้อรวม',
+                    title="ลูกค้าที่ซื้อมากที่สุด 10 อันดับ"
+                )
+                fig.update_layout(height=400, xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("ไม่มีข้อมูลลูกค้า")
+        finally:
+            session.close()
+    
+    elif report_type == "กำไร-ขาดทุน (รวมค่าใช้จ่าย)":
+        st.subheader("💵 รายงานกำไร-ขาดทุน (รวมค่าใช้จ่าย)")
+        
+        report_data = get_sales_report(start_datetime, end_datetime)
+        expense_summary = get_expense_summary(start_datetime, end_datetime)
+        
+        # Calculate net profit
+        total_expenses = expense_summary['total']
+        net_profit = report_data['total_profit'] - total_expenses
+        
+        # Metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("ยอดขายรวม", format_currency(report_data['total_sales']))
+        with col2:
+            st.metric("กำไรขั้นต้น", format_currency(report_data['total_profit']))
+        with col3:
+            st.metric("ค่าใช้จ่ายรวม", format_currency(total_expenses))
+        with col4:
+            st.metric("กำไรสุทธิ", format_currency(net_profit), 
+                     delta=f"{(net_profit/report_data['total_sales']*100) if report_data['total_sales'] > 0 else 0:.2f}%")
+        
+        # Chart
+        st.divider()
+        fig = go.Figure()
+        fig.add_trace(go.Bar(name='ยอดขาย', x=['สรุป'], y=[report_data['total_sales']]))
+        fig.add_trace(go.Bar(name='กำไรขั้นต้น', x=['สรุป'], y=[report_data['total_profit']]))
+        fig.add_trace(go.Bar(name='ค่าใช้จ่าย', x=['สรุป'], y=[total_expenses]))
+        fig.add_trace(go.Bar(name='กำไรสุทธิ', x=['สรุป'], y=[net_profit]))
+        fig.update_layout(title="สรุปกำไร-ขาดทุน", height=400, barmode='group')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Expenses by category
+        if expense_summary['by_category']:
+            st.divider()
+            st.write("**💰 ค่าใช้จ่ายตามหมวดหมู่**")
+            df_expense = pd.DataFrame(expense_summary['by_category'])
+            df_expense['total'] = df_expense['total'].apply(lambda x: format_currency(x))
+            df_expense.columns = ['ID', 'หมวดหมู่', 'จำนวนเงิน']
+            st.dataframe(df_expense[['หมวดหมู่', 'จำนวนเงิน']], use_container_width=True, hide_index=True)
+    
+    elif report_type == "รายงานภาษี":
+        st.subheader("📋 รายงานภาษีมูลค่าเพิ่ม")
+        
+        tax_report = get_tax_report(start_datetime, end_datetime)
+        
+        # Metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("ยอดขายรวม", format_currency(tax_report['total_sales']))
+        with col2:
+            st.metric("ยอดก่อนภาษี", format_currency(tax_report['total_subtotal']))
+        with col3:
+            st.metric("ภาษีรวม", format_currency(tax_report['total_tax']))
+        with col4:
+            st.metric("จำนวนใบกำกับ", f"{tax_report['sales_count']:,} ใบ")
+        
+        # Tax by rate
+        if tax_report['by_rate']:
+            st.divider()
+            st.write("**📊 ภาษีตามอัตรา**")
+            tax_data = []
+            for rate, data in tax_report['by_rate'].items():
+                tax_data.append({
+                    'อัตราภาษี': f"{rate}%",
+                    'ยอดก่อนภาษี': format_currency(data['subtotal']),
+                    'ภาษี': format_currency(data['tax']),
+                    'รวม': format_currency(data['total']),
+                    'จำนวน': data['count']
+                })
+            
+            df_tax = pd.DataFrame(tax_data)
+            st.dataframe(df_tax, use_container_width=True, hide_index=True)
+        
+        # Generate tax invoice for specific sale
+        st.divider()
+        st.write("**🧾 สร้างใบกำกับภาษี**")
+        sale_id_input = st.number_input("เลขที่การขาย", min_value=1, step=1, key="tax_invoice_sale_id")
+        
+        if st.button("📄 สร้างใบกำกับภาษี", key="generate_tax_invoice_btn"):
+            invoice_text = generate_tax_invoice(int(sale_id_input))
+            st.code(invoice_text, language=None)
+            
+            st.download_button(
+                "📥 ดาวน์โหลดใบกำกับภาษี",
+                invoice_text,
+                file_name=f"tax_invoice_{sale_id_input:06d}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
 
 if __name__ == "__main__":
     main()

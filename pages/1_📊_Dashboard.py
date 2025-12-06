@@ -15,6 +15,7 @@ from utils.helpers import (
     get_low_stock_products, get_top_selling_menus,
     get_sales_by_date, format_currency
 )
+from utils.notifications import get_all_notifications, Notification
 from functools import lru_cache
 import time
 
@@ -27,6 +28,21 @@ def main():
     if 'authenticated' not in st.session_state or not st.session_state.authenticated:
         st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
         return
+    
+    # Notifications
+    notifications = get_all_notifications()
+    if notifications:
+        st.subheader("🔔 การแจ้งเตือน")
+        for notif in notifications:
+            if notif.severity == 'error':
+                st.error(f"**{notif.title}** - {notif.message}")
+            elif notif.severity == 'warning':
+                st.warning(f"**{notif.title}** - {notif.message}")
+            elif notif.severity == 'success':
+                st.success(f"**{notif.title}** - {notif.message}")
+            else:
+                st.info(f"**{notif.title}** - {notif.message}")
+        st.divider()
     
     # Metrics row
     col1, col2, col3, col4 = st.columns(4)

@@ -77,6 +77,51 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] {
         border-radius: 0.5rem 0.5rem 0 0;
     }
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+        .stButton>button {
+            min-height: 48px;
+            font-size: 1rem;
+            padding: 0.75rem 1rem;
+        }
+        .stNumberInput>div>div>input {
+            font-size: 1rem;
+            min-height: 48px;
+        }
+        .stTextInput>div>div>input {
+            font-size: 1rem;
+            min-height: 48px;
+        }
+        .stSelectbox>div>div {
+            font-size: 1rem;
+            min-height: 48px;
+        }
+        .stRadio>div {
+            gap: 0.5rem;
+        }
+        .stRadio>div>label {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+        /* Touch-friendly spacing */
+        .element-container {
+            margin-bottom: 1rem;
+        }
+        /* Larger touch targets */
+        [data-testid="stMetricValue"] {
+            font-size: 1.5rem;
+        }
+    }
+    /* Touch-friendly buttons */
+    .stButton>button:active {
+        transform: scale(0.98);
+    }
+    /* Better mobile scrolling */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 1rem 0.5rem;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 

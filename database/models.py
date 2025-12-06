@@ -40,6 +40,9 @@ class User(Base):
     stock_transactions = relationship("StockTransaction", back_populates="creator")
     sales = relationship("Sale", back_populates="creator", foreign_keys="Sale.created_by")
     voided_sales = relationship("Sale", back_populates="voider", foreign_keys="Sale.voided_by")
+    shifts = relationship("EmployeeShift", back_populates="user")
+    attendances = relationship("Attendance", back_populates="user")
+    expenses = relationship("Expense", back_populates="creator")
 
 class Category(Base):
     """Category model"""
@@ -80,6 +83,11 @@ class Product(Base):
     menu_items = relationship("MenuItem", back_populates="product")
     stock_transactions = relationship("StockTransaction", back_populates="product")
     sale_items = relationship("SaleItem", back_populates="product")
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=True)  # สาขา
+    branch = relationship("Branch", back_populates="products")
+    stock_transfers = relationship("StockTransfer", back_populates="product")
+    batches = relationship("Batch", back_populates="product")
+    reorder_point = Column(Float, nullable=False, default=0.0)  # จุดสั่งซื้ออัตโนมัติ
 
 class Menu(Base):
     """Menu model - เมนูอาหาร"""
@@ -135,6 +143,7 @@ class Sale(Base):
     __table_args__ = (
         Index('idx_sale_date', 'sale_date'),
         Index('idx_sale_created_by', 'created_by'),
+        Index('idx_sale_customer', 'customer_id'),
     )
     
     id = Column(Integer, primary_key=True, index=True)
@@ -142,7 +151,14 @@ class Sale(Base):
     total_amount = Column(Float, nullable=False, default=0.0)
     discount_amount = Column(Float, nullable=False, default=0.0)  # ส่วนลดรวม
     final_amount = Column(Float, nullable=False, default=0.0)  # ยอดสุดท้ายหลังหักส่วนลด
-    payment_method = Column(String(20), nullable=False, default='cash')  # 'cash', 'transfer'
+    payment_method = Column(String(20), nullable=False, default='cash')  # 'cash', 'transfer', 'qr_code', 'credit_card'
+    payment_reference = Column(String(200), nullable=True)  # เลขที่อ้างอิงการโอน/บัตร
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=True)  # ลูกค้า
+    points_earned = Column(Float, nullable=False, default=0.0)  # แต้มที่ได้รับ
+    points_used = Column(Float, nullable=False, default=0.0)  # แต้มที่ใช้
+    tax_rate = Column(Float, nullable=False, default=0.0)  # อัตราภาษี (%)
+    tax_amount = Column(Float, nullable=False, default=0.0)  # จำนวนภาษี
+    subtotal = Column(Float, nullable=False, default=0.0)  # ยอดก่อนภาษี
     is_void = Column(Boolean, default=False, nullable=False)  # ยกเลิกการขาย
     void_reason = Column(Text, nullable=True)  # เหตุผลในการยกเลิก
     voided_by = Column(Integer, ForeignKey('users.id'), nullable=True)  # ผู้ยกเลิก
@@ -153,7 +169,13 @@ class Sale(Base):
     # Relationships
     creator = relationship("User", back_populates="sales", foreign_keys=[created_by])
     voider = relationship("User", back_populates="voided_sales", foreign_keys=[voided_by])
+    customer = relationship("Customer", back_populates="sales")
     sale_items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
+    loyalty_transactions = relationship("LoyaltyTransaction", back_populates="sale")
+    coupon_usages = relationship("CouponUsage", back_populates="sale")
+    promotion_usages = relationship("PromotionUsage", back_populates="sale")
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=True)  # สาขา
+    branch = relationship("Branch", back_populates="sales")
 
 class SaleItem(Base):
     """SaleItem model - รายการขาย"""
@@ -173,4 +195,357 @@ class SaleItem(Base):
     sale = relationship("Sale", back_populates="sale_items")
     product = relationship("Product", back_populates="sale_items")
     menu = relationship("Menu", back_populates="sale_items")
+
+class Customer(Base):
+    """Customer model - ข้อมูลลูกค้า"""
+    __tablename__ = 'customers'
+    __table_args__ = (
+        Index('idx_customer_phone', 'phone'),
+        Index('idx_customer_email', 'email'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, index=True)
+    phone = Column(String(20), nullable=True, unique=True, index=True)
+    email = Column(String(200), nullable=True, index=True)
+    address = Column(Text, nullable=True)
+    is_member = Column(Boolean, default=False, nullable=False)  # เป็นสมาชิกหรือไม่
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # Relationships
+    sales = relationship("Sale", back_populates="customer")
+    membership = relationship("Membership", back_populates="customer", uselist=False)
+    loyalty_transactions = relationship("LoyaltyTransaction", back_populates="customer")
+
+class Membership(Base):
+    """Membership model - ข้อมูลสมาชิก"""
+    __tablename__ = 'memberships'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False, unique=True)
+    member_code = Column(String(50), nullable=True, unique=True, index=True)  # รหัสสมาชิก
+    points = Column(Float, nullable=False, default=0.0)  # แต้มสะสม
+    total_spent = Column(Float, nullable=False, default=0.0)  # ยอดซื้อสะสม
+    total_visits = Column(Integer, nullable=False, default=0)  # จำนวนครั้งที่ซื้อ
+    joined_date = Column(DateTime, default=datetime.now)
+    last_visit = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Relationships
+    customer = relationship("Customer", back_populates="membership")
+
+class LoyaltyTransaction(Base):
+    """LoyaltyTransaction model - บันทึกการสะสม/ใช้แต้ม"""
+    __tablename__ = 'loyalty_transactions'
+    __table_args__ = (
+        Index('idx_loyalty_date', 'transaction_date'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
+    transaction_type = Column(String(20), nullable=False)  # 'earn' or 'redeem'
+    points = Column(Float, nullable=False)  # จำนวนแต้ม (บวกสำหรับ earn, ลบสำหรับ redeem)
+    sale_id = Column(Integer, ForeignKey('sales.id'), nullable=True)  # อ้างอิงการขาย (ถ้ามี)
+    description = Column(Text, nullable=True)  # คำอธิบาย
+    transaction_date = Column(DateTime, default=datetime.now, index=True)
+    
+    # Relationships
+    customer = relationship("Customer", back_populates="loyalty_transactions")
+    sale = relationship("Sale", back_populates="loyalty_transactions")
+
+class Coupon(Base):
+    """Coupon model - คูปองส่วนลด"""
+    __tablename__ = 'coupons'
+    __table_args__ = (
+        Index('idx_coupon_code', 'code'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), nullable=False, unique=True, index=True)  # รหัสคูปอง
+    name = Column(String(200), nullable=False)  # ชื่อคูปอง
+    description = Column(Text, nullable=True)
+    discount_type = Column(String(20), nullable=False)  # 'percent' or 'fixed'
+    discount_value = Column(Float, nullable=False)  # ค่าส่วนลด (% หรือ ฿)
+    min_purchase = Column(Float, nullable=False, default=0.0)  # ยอดซื้อขั้นต่ำ
+    max_discount = Column(Float, nullable=True)  # ส่วนลดสูงสุด (สำหรับ percent)
+    valid_from = Column(DateTime, nullable=False)
+    valid_until = Column(DateTime, nullable=False)
+    usage_limit = Column(Integer, nullable=True)  # จำนวนครั้งที่ใช้ได้ (null = ไม่จำกัด)
+    used_count = Column(Integer, nullable=False, default=0)  # จำนวนครั้งที่ใช้แล้ว
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    coupon_usages = relationship("CouponUsage", back_populates="coupon")
+
+class CouponUsage(Base):
+    """CouponUsage model - บันทึกการใช้งานคูปอง"""
+    __tablename__ = 'coupon_usages'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    coupon_id = Column(Integer, ForeignKey('coupons.id'), nullable=False)
+    sale_id = Column(Integer, ForeignKey('sales.id'), nullable=False)
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=True)
+    discount_amount = Column(Float, nullable=False)  # จำนวนส่วนลดที่ใช้
+    used_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    coupon = relationship("Coupon", back_populates="coupon_usages")
+    sale = relationship("Sale", back_populates="coupon_usages")
+    customer = relationship("Customer")
+
+class EmployeeShift(Base):
+    """EmployeeShift model - กะการทำงาน"""
+    __tablename__ = 'employee_shifts'
+    __table_args__ = (
+        Index('idx_shift_date', 'shift_date'),
+        Index('idx_shift_user', 'user_id'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    shift_date = Column(DateTime, nullable=False, index=True)  # วันที่ทำงาน
+    shift_start = Column(DateTime, nullable=True)  # เวลาเริ่มกะ
+    shift_end = Column(DateTime, nullable=True)  # เวลาสิ้นสุดกะ
+    break_duration = Column(Integer, nullable=False, default=0)  # เวลาพัก (นาที)
+    notes = Column(Text, nullable=True)  # หมายเหตุ
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    user = relationship("User", back_populates="shifts")
+    attendances = relationship("Attendance", back_populates="shift")
+
+class Attendance(Base):
+    """Attendance model - บันทึกเวลาเข้า-ออกงาน"""
+    __tablename__ = 'attendances'
+    __table_args__ = (
+        Index('idx_attendance_date', 'attendance_date'),
+        Index('idx_attendance_user', 'user_id'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    shift_id = Column(Integer, ForeignKey('employee_shifts.id'), nullable=True)
+    attendance_date = Column(DateTime, nullable=False, index=True)  # วันที่
+    clock_in = Column(DateTime, nullable=True)  # เวลาเข้า
+    clock_out = Column(DateTime, nullable=True)  # เวลาออก
+    total_hours = Column(Float, nullable=False, default=0.0)  # จำนวนชั่วโมงทำงาน
+    is_late = Column(Boolean, default=False, nullable=False)  # สายหรือไม่
+    is_absent = Column(Boolean, default=False, nullable=False)  # ขาดงานหรือไม่
+    notes = Column(Text, nullable=True)  # หมายเหตุ
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    user = relationship("User", back_populates="attendances")
+    shift = relationship("EmployeeShift", back_populates="attendances")
+
+class ExpenseCategory(Base):
+    """ExpenseCategory model - หมวดหมู่ค่าใช้จ่าย"""
+    __tablename__ = 'expense_categories'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    expenses = relationship("Expense", back_populates="category")
+
+class Expense(Base):
+    """Expense model - ค่าใช้จ่าย"""
+    __tablename__ = 'expenses'
+    __table_args__ = (
+        Index('idx_expense_date', 'expense_date'),
+        Index('idx_expense_category', 'category_id'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    category_id = Column(Integer, ForeignKey('expense_categories.id'), nullable=False)
+    amount = Column(Float, nullable=False)  # จำนวนเงิน
+    description = Column(Text, nullable=True)  # คำอธิบาย
+    expense_date = Column(DateTime, nullable=False, index=True)  # วันที่ใช้จ่าย
+    receipt_path = Column(String(500), nullable=True)  # ไฟล์ใบเสร็จ
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime, default=datetime.now, index=True)
+    
+    # Relationships
+    category = relationship("ExpenseCategory", back_populates="expenses")
+    creator = relationship("User", back_populates="expenses")
+
+class Branch(Base):
+    """Branch model - สาขา"""
+    __tablename__ = 'branches'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, unique=True)  # ชื่อสาขา
+    address = Column(Text, nullable=True)  # ที่อยู่
+    phone = Column(String(20), nullable=True)  # เบอร์โทร
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    stock_transfers_from = relationship("StockTransfer", back_populates="from_branch", foreign_keys="StockTransfer.from_branch_id")
+    stock_transfers_to = relationship("StockTransfer", back_populates="to_branch", foreign_keys="StockTransfer.to_branch_id")
+    products = relationship("Product", back_populates="branch")
+    sales = relationship("Sale", back_populates="branch")
+
+class StockTransfer(Base):
+    """StockTransfer model - การโอนย้ายสินค้าระหว่างสาขา"""
+    __tablename__ = 'stock_transfers'
+    __table_args__ = (
+        Index('idx_transfer_date', 'transfer_date'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    from_branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    to_branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    quantity = Column(Float, nullable=False)  # จำนวนที่โอน
+    transfer_date = Column(DateTime, default=datetime.now, index=True)  # วันที่โอน
+    status = Column(String(20), nullable=False, default='pending')  # 'pending', 'completed', 'cancelled'
+    notes = Column(Text, nullable=True)  # หมายเหตุ
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    from_branch = relationship("Branch", back_populates="stock_transfers_from", foreign_keys=[from_branch_id])
+    to_branch = relationship("Branch", back_populates="stock_transfers_to", foreign_keys=[to_branch_id])
+    product = relationship("Product", back_populates="stock_transfers")
+    creator = relationship("User")
+
+class Supplier(Base):
+    """Supplier model - ผู้จำหน่าย"""
+    __tablename__ = 'suppliers'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)  # ชื่อผู้จำหน่าย
+    contact_person = Column(String(200), nullable=True)  # ชื่อผู้ติดต่อ
+    phone = Column(String(20), nullable=True)  # เบอร์โทร
+    email = Column(String(200), nullable=True)  # อีเมล
+    address = Column(Text, nullable=True)  # ที่อยู่
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    purchase_orders = relationship("PurchaseOrder", back_populates="supplier")
+
+class PurchaseOrder(Base):
+    """PurchaseOrder model - ใบสั่งซื้อ"""
+    __tablename__ = 'purchase_orders'
+    __table_args__ = (
+        Index('idx_po_date', 'order_date'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    supplier_id = Column(Integer, ForeignKey('suppliers.id'), nullable=False)
+    order_date = Column(DateTime, default=datetime.now, index=True)  # วันที่สั่งซื้อ
+    expected_date = Column(DateTime, nullable=True)  # วันที่คาดว่าจะได้รับ
+    received_date = Column(DateTime, nullable=True)  # วันที่ได้รับจริง
+    total_amount = Column(Float, nullable=False, default=0.0)  # ยอดรวม
+    status = Column(String(20), nullable=False, default='pending')  # 'pending', 'received', 'cancelled'
+    notes = Column(Text, nullable=True)  # หมายเหตุ
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    supplier = relationship("Supplier", back_populates="purchase_orders")
+    items = relationship("PurchaseOrderItem", back_populates="purchase_order", cascade="all, delete-orphan")
+    creator = relationship("User")
+
+class PurchaseOrderItem(Base):
+    """PurchaseOrderItem model - รายการในใบสั่งซื้อ"""
+    __tablename__ = 'purchase_order_items'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    purchase_order_id = Column(Integer, ForeignKey('purchase_orders.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    quantity = Column(Float, nullable=False)  # จำนวนที่สั่ง
+    unit_price = Column(Float, nullable=False)  # ราคาต่อหน่วย
+    total_price = Column(Float, nullable=False)  # ราคารวม
+    
+    # Relationships
+    purchase_order = relationship("PurchaseOrder", back_populates="items")
+    product = relationship("Product")
+
+class Batch(Base):
+    """Batch model - Lot/Batch สำหรับติดตามวันหมดอายุ"""
+    __tablename__ = 'batches'
+    __table_args__ = (
+        Index('idx_batch_expiry', 'expiry_date'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    batch_number = Column(String(100), nullable=False)  # เลขที่ Lot/Batch
+    quantity = Column(Float, nullable=False)  # จำนวนใน Lot
+    remaining_quantity = Column(Float, nullable=False)  # จำนวนคงเหลือ
+    production_date = Column(DateTime, nullable=True)  # วันที่ผลิต
+    expiry_date = Column(DateTime, nullable=True, index=True)  # วันหมดอายุ
+    purchase_order_id = Column(Integer, ForeignKey('purchase_orders.id'), nullable=True)  # อ้างอิงใบสั่งซื้อ
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    product = relationship("Product", back_populates="batches")
+    purchase_order = relationship("PurchaseOrder")
+
+class Promotion(Base):
+    """Promotion model - โปรโมชั่น"""
+    __tablename__ = 'promotions'
+    __table_args__ = (
+        Index('idx_promotion_date', 'valid_from', 'valid_until'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)  # ชื่อโปรโมชั่น
+    description = Column(Text, nullable=True)  # คำอธิบาย
+    promotion_type = Column(String(50), nullable=False)  # 'buy_x_get_y', 'discount', 'time_based', 'member_only'
+    discount_type = Column(String(20), nullable=True)  # 'percent' or 'fixed' (for discount type)
+    discount_value = Column(Float, nullable=True)  # ค่าส่วนลด
+    min_purchase = Column(Float, nullable=False, default=0.0)  # ยอดซื้อขั้นต่ำ
+    max_discount = Column(Float, nullable=True)  # ส่วนลดสูงสุด
+    buy_quantity = Column(Integer, nullable=True)  # ซื้อ X (for buy_x_get_y)
+    get_quantity = Column(Integer, nullable=True)  # แถม Y (for buy_x_get_y)
+    time_start = Column(String(10), nullable=True)  # เวลาเริ่ม (HH:MM) for time_based
+    time_end = Column(String(10), nullable=True)  # เวลาสิ้นสุด (HH:MM) for time_based
+    days_of_week = Column(String(20), nullable=True)  # วันในสัปดาห์ (0=Monday, 6=Sunday) comma-separated
+    valid_from = Column(DateTime, nullable=False)  # วันที่เริ่มต้น
+    valid_until = Column(DateTime, nullable=False)  # วันที่สิ้นสุด
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    rules = relationship("PromotionRule", back_populates="promotion", cascade="all, delete-orphan")
+    usages = relationship("PromotionUsage", back_populates="promotion")
+
+class PromotionRule(Base):
+    """PromotionRule model - เงื่อนไขโปรโมชั่น"""
+    __tablename__ = 'promotion_rules'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    promotion_id = Column(Integer, ForeignKey('promotions.id'), nullable=False)
+    rule_type = Column(String(50), nullable=False)  # 'product', 'menu', 'category', 'member'
+    target_id = Column(Integer, nullable=True)  # ID of product/menu/category
+    min_quantity = Column(Float, nullable=False, default=1.0)  # จำนวนขั้นต่ำ
+    
+    # Relationships
+    promotion = relationship("Promotion", back_populates="rules")
+
+class PromotionUsage(Base):
+    """PromotionUsage model - บันทึกการใช้งานโปรโมชั่น"""
+    __tablename__ = 'promotion_usages'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    promotion_id = Column(Integer, ForeignKey('promotions.id'), nullable=False)
+    sale_id = Column(Integer, ForeignKey('sales.id'), nullable=False)
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=True)
+    discount_amount = Column(Float, nullable=False)  # จำนวนส่วนลดที่ใช้
+    used_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    promotion = relationship("Promotion", back_populates="usages")
+    sale = relationship("Sale", back_populates="promotion_usages")
+    customer = relationship("Customer")
+
 
