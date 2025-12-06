@@ -40,6 +40,20 @@ def migrate():
         else:
             print("✓ reorder_point column already exists")
         
+        # Check sales table columns
+        result_sales = conn.execute(text("PRAGMA table_info(sales)"))
+        sales_columns = [row[1] for row in result_sales]
+        
+        print(f"\nCurrent columns in sales table: {sales_columns}")
+        
+        # Add branch_id to sales if not exists
+        if 'branch_id' not in sales_columns:
+            print("Adding branch_id column to sales table...")
+            conn.execute(text("ALTER TABLE sales ADD COLUMN branch_id INTEGER"))
+            print("✅ Added branch_id column to sales table")
+        else:
+            print("✓ branch_id column already exists in sales table")
+        
         conn.commit()
         print("\n✅ Migration completed successfully!")
         

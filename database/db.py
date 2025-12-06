@@ -71,6 +71,10 @@ def init_db():
             conn.execute(text("ALTER TABLE sales ADD COLUMN tax_amount FLOAT DEFAULT 0"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN subtotal FLOAT DEFAULT 0"))
         
+        # Add branch_id column for multi-branch support
+        if 'branch_id' not in columns:
+            conn.execute(text("ALTER TABLE sales ADD COLUMN branch_id INTEGER"))
+        
         # Update payment_method to support new payment types
         # Note: SQLite doesn't support ALTER COLUMN, so we'll handle this in application code
         
