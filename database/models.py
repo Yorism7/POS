@@ -38,7 +38,8 @@ class User(Base):
     
     # Relationships
     stock_transactions = relationship("StockTransaction", back_populates="creator")
-    sales = relationship("Sale", back_populates="creator")
+    sales = relationship("Sale", back_populates="creator", foreign_keys="Sale.created_by")
+    voided_sales = relationship("Sale", back_populates="voider", foreign_keys="Sale.voided_by")
 
 class Category(Base):
     """Category model"""

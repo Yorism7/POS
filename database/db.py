@@ -3,7 +3,7 @@ Database Connection and Initialization
 """
 
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from database.models import Base, User, Category, Product, Menu, MenuItem, StockTransaction, Sale, SaleItem
 import bcrypt
