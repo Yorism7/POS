@@ -224,18 +224,35 @@ def main():
                 
                 if st.form_submit_button("➕ เพิ่มสินค้า", type="primary", use_container_width=True):
                     if name and unit:
-                        try:
-                            # Check if barcode already exists
-                            if barcode and barcode.strip():
-                                existing = session.query(Product).filter(Product.barcode == barcode.strip()).first()
-                                if existing:
-                                    st.error(f"❌ บาร์โค๊ด {barcode.strip()} มีอยู่แล้วในสินค้า: {existing.name}")
+                        with st.spinner("⏳ กำลังเพิ่มสินค้า..."):
+                            try:
+                                # Check if barcode already exists
+                                if barcode and barcode.strip():
+                                    existing = session.query(Product).filter(Product.barcode == barcode.strip()).first()
+                                    if existing:
+                                        st.error(f"❌ บาร์โค๊ด {barcode.strip()} มีอยู่แล้วในสินค้า: {existing.name}")
+                                    else:
+                                        product = Product(
+                                            name=name,
+                                            category_id=category_id,
+                                            unit=unit,
+                                            barcode=barcode.strip() if barcode else None,
+                                            cost_price=cost_price,
+                                            selling_price=selling_price,
+                                            stock_quantity=stock_quantity,
+                                            min_stock=min_stock
+                                        )
+                                        session.add(product)
+                                        session.commit()
+                                        print(f"[DEBUG] เพิ่มสินค้าพร้อมบาร์โค๊ด - Product: {name}, Barcode: {barcode.strip()} - {datetime.now()}")
+                                        st.success(f"✅ เพิ่มสินค้า {name} สำเร็จ")
+                                        st.rerun()
                                 else:
                                     product = Product(
                                         name=name,
                                         category_id=category_id,
                                         unit=unit,
-                                        barcode=barcode.strip() if barcode else None,
+                                        barcode=None,
                                         cost_price=cost_price,
                                         selling_price=selling_price,
                                         stock_quantity=stock_quantity,
@@ -243,24 +260,8 @@ def main():
                                     )
                                     session.add(product)
                                     session.commit()
-                                    print(f"[DEBUG] เพิ่มสินค้าพร้อมบาร์โค๊ด - Product: {name}, Barcode: {barcode.strip()} - {datetime.now()}")
                                     st.success(f"✅ เพิ่มสินค้า {name} สำเร็จ")
                                     st.rerun()
-                            else:
-                                product = Product(
-                                    name=name,
-                                    category_id=category_id,
-                                    unit=unit,
-                                    barcode=None,
-                                    cost_price=cost_price,
-                                    selling_price=selling_price,
-                                    stock_quantity=stock_quantity,
-                                    min_stock=min_stock
-                                )
-                                session.add(product)
-                                session.commit()
-                                st.success(f"✅ เพิ่มสินค้า {name} สำเร็จ")
-                                st.rerun()
                             except Exception as e:
                                 session.rollback()
                                 st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
@@ -296,31 +297,31 @@ def main():
                 if st.form_submit_button("📥 บันทึกสต็อคเข้า", type="primary", use_container_width=True):
                     with st.spinner("⏳ กำลังบันทึกสต็อคเข้า..."):
                         try:
-                        product = session.query(Product).filter(Product.id == product_id).first()
-                        if product:
-                            # Create transaction
-                            transaction = StockTransaction(
-                                product_id=product_id,
-                                transaction_type='in',
-                                quantity=quantity,
-                                unit_price=unit_price,
-                                total_cost=total_cost,
-                                reason=reason or 'สต็อคเข้า',
-                                created_by=st.session_state.user_id
-                            )
-                            session.add(transaction)
-                            
-                            # Update product stock
-                            product.stock_quantity += quantity
-                            # Update cost price if needed
-                            if unit_price > 0:
-                                # Weighted average cost
-                                old_total = product.stock_quantity * product.cost_price
-                                new_total = old_total + total_cost
-                                new_stock = product.stock_quantity
-                                if new_stock > 0:
-                                    product.cost_price = new_total / new_stock
-                            
+                            product = session.query(Product).filter(Product.id == product_id).first()
+                            if product:
+                                # Create transaction
+                                transaction = StockTransaction(
+                                    product_id=product_id,
+                                    transaction_type='in',
+                                    quantity=quantity,
+                                    unit_price=unit_price,
+                                    total_cost=total_cost,
+                                    reason=reason or 'สต็อคเข้า',
+                                    created_by=st.session_state.user_id
+                                )
+                                session.add(transaction)
+                                
+                                # Update product stock
+                                product.stock_quantity += quantity
+                                # Update cost price if needed
+                                if unit_price > 0:
+                                    # Weighted average cost
+                                    old_total = product.stock_quantity * product.cost_price
+                                    new_total = old_total + total_cost
+                                    new_stock = product.stock_quantity
+                                    if new_stock > 0:
+                                        product.cost_price = new_total / new_stock
+                                
                                 session.commit()
                                 print(f"[DEBUG] บันทึกสต็อคเข้า - Product: {product.name}, Qty: {quantity}, User: {st.session_state.user_id} - {datetime.now()}")
                                 st.success("✅ บันทึกสต็อคเข้าสำเร็จ")

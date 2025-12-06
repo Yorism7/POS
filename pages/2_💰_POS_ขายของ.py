@@ -320,36 +320,36 @@ def main():
                     with st.spinner("⏳ กำลังประมวลผลการชำระเงิน..."):
                         session = get_session()
                         try:
-                        # Create sale
-                        sale = Sale(
-                            sale_date=datetime.now(),
-                            total_amount=total,
-                            discount_amount=discount,
-                            final_amount=final_total,
-                            payment_method='cash' if payment_method == "💰 เงินสด" else 'transfer',
-                            created_by=st.session_state.user_id
-                        )
-                        session.add(sale)
-                        session.flush()  # Get sale.id
-                        
-                        # Calculate item discount (proportional)
-                        item_discount_ratio = discount / total if total > 0 else 0
-                        
-                        # Create sale items
-                        for item in st.session_state.cart:
-                            item_discount = item['total'] * item_discount_ratio
-                            sale_item = SaleItem(
-                                sale_id=sale.id,
-                                product_id=item['id'] if item['type'] == 'product' else None,
-                                menu_id=item['id'] if item['type'] == 'menu' else None,
-                                item_type=item['type'],
-                                quantity=item['quantity'],
-                                unit_price=item['price'],
-                                discount_amount=item_discount,
-                                total_price=item['total'] - item_discount
+                            # Create sale
+                            sale = Sale(
+                                sale_date=datetime.now(),
+                                total_amount=total,
+                                discount_amount=discount,
+                                final_amount=final_total,
+                                payment_method='cash' if payment_method == "💰 เงินสด" else 'transfer',
+                                created_by=st.session_state.user_id
                             )
-                            session.add(sale_item)
-                        
+                            session.add(sale)
+                            session.flush()  # Get sale.id
+                            
+                            # Calculate item discount (proportional)
+                            item_discount_ratio = discount / total if total > 0 else 0
+                            
+                            # Create sale items
+                            for item in st.session_state.cart:
+                                item_discount = item['total'] * item_discount_ratio
+                                sale_item = SaleItem(
+                                    sale_id=sale.id,
+                                    product_id=item['id'] if item['type'] == 'product' else None,
+                                    menu_id=item['id'] if item['type'] == 'menu' else None,
+                                    item_type=item['type'],
+                                    quantity=item['quantity'],
+                                    unit_price=item['price'],
+                                    discount_amount=item_discount,
+                                    total_price=item['total'] - item_discount
+                                )
+                                session.add(sale_item)
+                            
                             session.commit()
                             print(f"[DEBUG] สร้างการขายสำเร็จ - Sale ID: {sale.id}, Total: {total}, User: {st.session_state.user_id} - {datetime.now()}")
                             
@@ -363,47 +363,47 @@ def main():
                                 st.error(f"❌ เกิดข้อผิดพลาดในการลดสต็อค: {str(e)}")
                             
                             st.success(f"✅ ชำระเงินสำเร็จ! เลขที่: {sale.id:06d}")
-                        
-                        # Show receipt
-                        st.subheader("🧾 ใบเสร็จ")
-                        receipt_text = generate_receipt_text(sale.id)
-                        st.code(receipt_text, language=None)
-                        
-                        # Download receipt
-                        col_dl_pdf, col_dl_txt = st.columns(2)
-                        with col_dl_pdf:
-                            try:
-                                pdf_path = generate_receipt_pdf(sale.id)
-                                with open(pdf_path, 'rb') as f:
-                                    st.download_button(
-                                        "📄 ดาวน์โหลด PDF",
-                                        f.read(),
-                                        file_name=f"receipt_{sale.id:06d}.pdf",
-                                        mime="application/pdf",
-                                        use_container_width=True
-                                    )
-                            except Exception as e:
-                                st.error(f"❌ ไม่สามารถสร้าง PDF: {str(e)}")
-                        
-                        with col_dl_txt:
-                            st.download_button(
-                                "📝 ดาวน์โหลด Text",
-                                receipt_text,
-                                file_name=f"receipt_{sale.id:06d}.txt",
-                                mime="text/plain",
-                                use_container_width=True
-                            )
-                        
-                        # Clear cart and discount
-                        clear_cart()
-                        st.session_state.cart_discount = 0.0
-                        st.rerun()
-                        
-                    except Exception as e:
-                        session.rollback()
-                        st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
-                    finally:
-                        session.close()
+                            
+                            # Show receipt
+                            st.subheader("🧾 ใบเสร็จ")
+                            receipt_text = generate_receipt_text(sale.id)
+                            st.code(receipt_text, language=None)
+                            
+                            # Download receipt
+                            col_dl_pdf, col_dl_txt = st.columns(2)
+                            with col_dl_pdf:
+                                try:
+                                    pdf_path = generate_receipt_pdf(sale.id)
+                                    with open(pdf_path, 'rb') as f:
+                                        st.download_button(
+                                            "📄 ดาวน์โหลด PDF",
+                                            f.read(),
+                                            file_name=f"receipt_{sale.id:06d}.pdf",
+                                            mime="application/pdf",
+                                            use_container_width=True
+                                        )
+                                except Exception as e:
+                                    st.error(f"❌ ไม่สามารถสร้าง PDF: {str(e)}")
+                            
+                            with col_dl_txt:
+                                st.download_button(
+                                    "📝 ดาวน์โหลด Text",
+                                    receipt_text,
+                                    file_name=f"receipt_{sale.id:06d}.txt",
+                                    mime="text/plain",
+                                    use_container_width=True
+                                )
+                            
+                            # Clear cart and discount
+                            clear_cart()
+                            st.session_state.cart_discount = 0.0
+                            st.rerun()
+                            
+                        except Exception as e:
+                            session.rollback()
+                            st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+                        finally:
+                            session.close()
             
             with col_clear:
                 if st.button("🗑️ ล้างตะกร้า", use_container_width=True):
