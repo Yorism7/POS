@@ -109,10 +109,12 @@ def main():
                     st.error("⚠️ ข้อมูลจะหายเมื่อ restart!")
         
         with col3:
-                    # Test connection
+            # Test connection
             if st.button("🔍 ทดสอบการเชื่อมต่อ", width='stretch'):
                 with st.spinner("กำลังทดสอบการเชื่อมต่อ..."):
                     try:
+                        # Import Category inside the function to avoid scope issues
+                        from database.models import Category
                         session = get_session()
                         try:
                             # Try a simple query
