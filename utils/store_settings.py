@@ -3,10 +3,43 @@ Store Settings Management
 จัดการการตั้งค่าร้านและระบบ รวมถึง PromptPay
 """
 
-from database.db import get_session
+from database.db import get_session, engine
 from database.models import StoreSetting
 from datetime import datetime
 import json
+
+def ensure_store_settings_table():
+    """
+    ตรวจสอบและสร้าง table store_settings ถ้ายังไม่มี
+    """
+    try:
+        # Try to query to check if table exists
+        session = get_session()
+        try:
+            session.query(StoreSetting).limit(1).all()
+            session.close()
+            return True
+        except Exception as e:
+            session.close()
+            error_msg = str(e).lower()
+            if 'does not exist' in error_msg or 'no such table' in error_msg or 'relation' in error_msg or 'undefinedtable' in error_msg:
+                print(f"[INFO] Creating store_settings table...")
+                StoreSetting.__table__.create(bind=engine, checkfirst=True)
+                print(f"[INFO] ✅ store_settings table created successfully")
+                # Initialize default settings
+                try:
+                    init_default_settings()
+                    print(f"[INFO] ✅ Default settings initialized")
+                except Exception as e3:
+                    print(f"[WARNING] Failed to initialize default settings: {e3}")
+                return True
+            else:
+                raise
+    except Exception as e:
+        print(f"[ERROR] Failed to ensure store_settings table: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 def get_setting(key: str, default: str = "") -> str:
     """
@@ -19,6 +52,9 @@ def get_setting(key: str, default: str = "") -> str:
     Returns:
         ค่าของการตั้งค่า (string)
     """
+    # Ensure table exists first
+    ensure_store_settings_table()
+    
     session = get_session()
     try:
         setting = session.query(StoreSetting).filter(StoreSetting.key == key).first()
@@ -26,25 +62,12 @@ def get_setting(key: str, default: str = "") -> str:
             return setting.value or default
         return default
     except Exception as e:
-        # ถ้า table ยังไม่มี ให้สร้าง table และ return default value
+        # If still error, return default
         error_msg = str(e).lower()
-        if 'does not exist' in error_msg or 'no such table' in error_msg or 'relation' in error_msg:
-            print(f"[WARNING] store_settings table not found, attempting to create it...")
-            try:
-                from database.db import engine
-                from database.models import StoreSetting
-                StoreSetting.__table__.create(bind=engine, checkfirst=True)
-                print(f"[INFO] store_settings table created successfully")
-                # Try to initialize default settings
-                try:
-                    init_default_settings()
-                except:
-                    pass
-            except Exception as e2:
-                print(f"[ERROR] Failed to create store_settings table: {e2}")
+        if 'does not exist' in error_msg or 'no such table' in error_msg or 'relation' in error_msg or 'undefinedtable' in error_msg:
+            print(f"[WARNING] Table still not available, returning default for {key}")
         else:
             print(f"[WARNING] Error reading setting {key}: {e}")
-        print(f"[INFO] Returning default value: {default}")
         return default
     finally:
         session.close()

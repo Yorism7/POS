@@ -246,71 +246,24 @@ def get_session() -> Session:
 
 def init_db():
     """Initialize database - create all tables"""
-    # Create all tables including new ones (StoreSetting, SavedLogin)
-    Base.metadata.create_all(bind=engine)
+    # Import models to ensure they're registered with Base
+    from database.models import StoreSetting, SavedLogin
     
-    # Verify that store_settings table exists
+    # Create all tables including new ones (StoreSetting, SavedLogin)
+    print("[INFO] Creating all database tables...")
+    Base.metadata.create_all(bind=engine)
+    print("[INFO] ✅ All tables created")
+    
+    # Force create new tables if they don't exist (for existing databases)
     try:
-        conn = engine.connect()
-        if is_sqlite:
-            result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='store_settings'"))
-        elif is_postgresql:
-            result = conn.execute(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_name = 'store_settings'
-            """))
-        elif is_mysql:
-            result = conn.execute(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = DATABASE() AND table_name = 'store_settings'
-            """))
-        else:
-            result = None
-        
-        table_exists = result.fetchone() if result else None
-        if not table_exists:
-            print("[WARNING] store_settings table not found, creating it...")
-            # Force create the table
-            from database.models import StoreSetting
-            StoreSetting.__table__.create(bind=engine, checkfirst=True)
-        
-        # Verify saved_logins table exists
-        if is_sqlite:
-            result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='saved_logins'"))
-        elif is_postgresql:
-            result = conn.execute(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_name = 'saved_logins'
-            """))
-        elif is_mysql:
-            result = conn.execute(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = DATABASE() AND table_name = 'saved_logins'
-            """))
-        else:
-            result = None
-        
-        table_exists = result.fetchone() if result else None
-        if not table_exists:
-            print("[WARNING] saved_logins table not found, creating it...")
-            # Force create the table
-            from database.models import SavedLogin
-            SavedLogin.__table__.create(bind=engine, checkfirst=True)
-        
-        conn.close()
+        print("[INFO] Verifying new tables exist...")
+        StoreSetting.__table__.create(bind=engine, checkfirst=True)
+        SavedLogin.__table__.create(bind=engine, checkfirst=True)
+        print("[INFO] ✅ New tables verified")
     except Exception as e:
-        print(f"[WARNING] Error checking tables: {e}")
-        # Try to create tables anyway
-        try:
-            from database.models import StoreSetting, SavedLogin
-            StoreSetting.__table__.create(bind=engine, checkfirst=True)
-            SavedLogin.__table__.create(bind=engine, checkfirst=True)
-        except Exception as e2:
-            print(f"[WARNING] Failed to create tables: {e2}")
+        print(f"[WARNING] Error verifying tables: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Initialize default settings
     try:

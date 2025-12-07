@@ -3,11 +3,38 @@ Persistent Login Management
 จัดการการล็อคอินที่จดจำไว้ถาวร
 """
 
-from database.db import get_session
+from database.db import get_session, engine
 from database.models import User, SavedLogin
 from datetime import datetime, timedelta
 import secrets
 import hashlib
+
+def ensure_saved_logins_table():
+    """
+    ตรวจสอบและสร้าง table saved_logins ถ้ายังไม่มี
+    """
+    try:
+        # Try to query to check if table exists
+        session = get_session()
+        try:
+            session.query(SavedLogin).limit(1).all()
+            session.close()
+            return True
+        except Exception as e:
+            session.close()
+            error_msg = str(e).lower()
+            if 'does not exist' in error_msg or 'no such table' in error_msg or 'relation' in error_msg or 'undefinedtable' in error_msg:
+                print(f"[INFO] Creating saved_logins table...")
+                SavedLogin.__table__.create(bind=engine, checkfirst=True)
+                print(f"[INFO] ✅ saved_logins table created successfully")
+                return True
+            else:
+                raise
+    except Exception as e:
+        print(f"[ERROR] Failed to ensure saved_logins table: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 def generate_remember_token() -> str:
     """
@@ -30,6 +57,9 @@ def save_login(user_id: int, username: str, remember_forever: bool = True) -> st
     Returns:
         Remember token
     """
+    # Ensure table exists first
+    ensure_saved_logins_table()
+    
     session = get_session()
     try:
         # ลบ saved login เก่าของ user นี้ (ถ้ามี)
@@ -77,6 +107,9 @@ def get_user_from_token(remember_token: str) -> dict:
     """
     if not remember_token:
         return None
+    
+    # Ensure table exists first
+    ensure_saved_logins_table()
     
     session = get_session()
     try:
@@ -154,7 +187,9 @@ def get_saved_username() -> str:
         Username หรือ empty string
     """
     try:
-        from utils.store_settings import get_setting
+        from utils.store_settings import get_setting, ensure_store_settings_table
+        # Ensure table exists first
+        ensure_store_settings_table()
         return get_setting('last_login_username', '')
     except Exception as e:
         print(f"[ERROR] Failed to get saved username: {e}")
@@ -168,7 +203,9 @@ def set_saved_username(username: str):
         username: Username ที่จะบันทึก
     """
     try:
-        from utils.store_settings import set_setting
+        from utils.store_settings import set_setting, ensure_store_settings_table
+        # Ensure table exists first
+        ensure_store_settings_table()
         set_setting('last_login_username', username, 'Username ที่ล็อคอินล่าสุด')
     except Exception as e:
         print(f"[ERROR] Failed to set saved username: {e}")
