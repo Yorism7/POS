@@ -673,6 +673,5 @@ class KitchenQueue(Base):
     order = relationship("CustomerOrder", back_populates="queue_items")
     menu = relationship("Menu")
     preparer = relationship("User")
-    customer = relationship("Customer")
 
 
