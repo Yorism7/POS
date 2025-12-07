@@ -261,20 +261,66 @@ def init_db():
         traceback.print_exc()
     
     # Force create new tables if they don't exist (for existing databases)
+    # Use connection with explicit transaction for PostgreSQL
     try:
         print("[INFO] Verifying new tables exist...")
-        StoreSetting.__table__.create(bind=engine, checkfirst=True)
-        print("[INFO] ✅ store_settings table verified")
-        SavedLogin.__table__.create(bind=engine, checkfirst=True)
-        print("[INFO] ✅ saved_logins table verified")
-        Table.__table__.create(bind=engine, checkfirst=True)
-        print("[INFO] ✅ tables table verified")
-        CustomerOrder.__table__.create(bind=engine, checkfirst=True)
-        print("[INFO] ✅ customer_orders table verified")
-        OrderItem.__table__.create(bind=engine, checkfirst=True)
-        print("[INFO] ✅ order_items table verified")
-        KitchenQueue.__table__.create(bind=engine, checkfirst=True)
-        print("[INFO] ✅ kitchen_queue table verified")
+        # For PostgreSQL, we need to commit DDL statements explicitly
+        if is_postgresql:
+            with engine.begin() as conn:  # Use begin() for auto-commit/rollback
+                try:
+                    StoreSetting.__table__.create(bind=conn, checkfirst=True)
+                    print("[INFO] ✅ store_settings table verified")
+                    SavedLogin.__table__.create(bind=conn, checkfirst=True)
+                    print("[INFO] ✅ saved_logins table verified")
+                    Table.__table__.create(bind=conn, checkfirst=True)
+                    print("[INFO] ✅ tables table verified")
+                    CustomerOrder.__table__.create(bind=conn, checkfirst=True)
+                    print("[INFO] ✅ customer_orders table verified")
+                    OrderItem.__table__.create(bind=conn, checkfirst=True)
+                    print("[INFO] ✅ order_items table verified")
+                    KitchenQueue.__table__.create(bind=conn, checkfirst=True)
+                    print("[INFO] ✅ kitchen_queue table verified")
+                    print("[INFO] ✅ All new tables committed successfully")
+                except Exception as e:
+                    print(f"[ERROR] Failed to create tables: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise e
+        else:
+            # For SQLite/MySQL, use checkfirst=True directly
+            StoreSetting.__table__.create(bind=engine, checkfirst=True)
+            print("[INFO] ✅ store_settings table verified")
+            SavedLogin.__table__.create(bind=engine, checkfirst=True)
+            print("[INFO] ✅ saved_logins table verified")
+            Table.__table__.create(bind=engine, checkfirst=True)
+            print("[INFO] ✅ tables table verified")
+            CustomerOrder.__table__.create(bind=engine, checkfirst=True)
+            print("[INFO] ✅ customer_orders table verified")
+            OrderItem.__table__.create(bind=engine, checkfirst=True)
+            print("[INFO] ✅ order_items table verified")
+            KitchenQueue.__table__.create(bind=engine, checkfirst=True)
+            print("[INFO] ✅ kitchen_queue table verified")
+        
+        # Verify tables actually exist by querying them
+        print("[INFO] Verifying tables can be queried...")
+        session = get_session()
+        try:
+            # Try to query each table to verify they exist
+            if is_postgresql:
+                result = session.execute(text("SELECT COUNT(*) FROM information_schema.tables WHERE table_name IN ('tables', 'customer_orders', 'order_items', 'kitchen_queue', 'store_settings', 'saved_logins')"))
+                count = result.scalar()
+                print(f"[INFO] ✅ Found {count} new tables in database")
+            else:
+                # For SQLite, just try to query
+                session.query(Table).limit(1).all()
+                session.query(CustomerOrder).limit(1).all()
+                session.query(OrderItem).limit(1).all()
+                session.query(KitchenQueue).limit(1).all()
+                print("[INFO] ✅ All new tables are queryable")
+        except Exception as e:
+            print(f"[WARNING] Could not verify tables: {e}")
+        finally:
+            session.close()
     except Exception as e:
         print(f"[WARNING] Error verifying tables: {e}")
         import traceback
