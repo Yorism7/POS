@@ -25,6 +25,27 @@ def get_setting(key: str, default: str = "") -> str:
         if setting:
             return setting.value or default
         return default
+    except Exception as e:
+        # ถ้า table ยังไม่มี ให้สร้าง table และ return default value
+        error_msg = str(e).lower()
+        if 'does not exist' in error_msg or 'no such table' in error_msg or 'relation' in error_msg:
+            print(f"[WARNING] store_settings table not found, attempting to create it...")
+            try:
+                from database.db import engine
+                from database.models import StoreSetting
+                StoreSetting.__table__.create(bind=engine, checkfirst=True)
+                print(f"[INFO] store_settings table created successfully")
+                # Try to initialize default settings
+                try:
+                    init_default_settings()
+                except:
+                    pass
+            except Exception as e2:
+                print(f"[ERROR] Failed to create store_settings table: {e2}")
+        else:
+            print(f"[WARNING] Error reading setting {key}: {e}")
+        print(f"[INFO] Returning default value: {default}")
+        return default
     finally:
         session.close()
 
