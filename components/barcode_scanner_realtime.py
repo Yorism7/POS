@@ -240,7 +240,8 @@ def barcode_scanner_realtime():
             window.addEventListener('load', function() {
                 video = document.getElementById('video');
                 canvas = document.getElementById('canvas');
-                ctx = canvas.getContext('2d');
+                // Use willReadFrequently for better performance when reading image data frequently
+                ctx = canvas.getContext('2d', { willReadFrequently: true });
                 scanFrame = document.getElementById('scannerFrame');
             });
 
@@ -318,28 +319,48 @@ def barcode_scanner_realtime():
                                 inversionAttempts: "dontInvert",
                             });
                             
-                            if (code) {
+                            if (code && code.data) {
                                 // Found barcode!
-                                const barcodeData = code.data;
-                                console.log('✅ Barcode found:', barcodeData);
-                                updateStatus('✅ พบบาร์โค๊ด: ' + barcodeData, 'success');
+                                const barcodeData = code.data.trim();
                                 
-                                // Stop scanning immediately
-                                stopScanner();
-                                
-                                // Send result to Streamlit via URL parameter
-                                try {
-                                    const currentUrl = window.location.href;
-                                    const url = new URL(currentUrl);
-                                    url.searchParams.set('barcode', barcodeData);
+                                // Validate barcode (should not be empty)
+                                if (barcodeData.length > 0) {
+                                    console.log('✅ Barcode found:', barcodeData);
+                                    updateStatus('✅ พบบาร์โค๊ด: ' + barcodeData, 'success');
                                     
-                                    // Reload page with barcode parameter
-                                    console.log('Redirecting to:', url.toString());
-                                    window.location.href = url.toString();
-                                    return;
-                                } catch (e) {
-                                    console.error('Error sending barcode:', e);
-                                    updateStatus('❌ เกิดข้อผิดพลาดในการส่งข้อมูล', 'error');
+                                    // Stop scanning immediately
+                                    stopScanner();
+                                    
+                                    // Send result to Streamlit via URL parameter
+                                    try {
+                                        // Get current URL
+                                        const currentUrl = window.location.href;
+                                        const url = new URL(currentUrl);
+                                        
+                                        // Remove existing barcode parameter if any
+                                        url.searchParams.delete('barcode');
+                                        
+                                        // Add new barcode parameter
+                                        url.searchParams.set('barcode', barcodeData);
+                                        
+                                        console.log('✅ Barcode scanned:', barcodeData);
+                                        console.log('Redirecting to:', url.toString());
+                                        
+                                        // Use window.location to navigate (preserves Streamlit routing)
+                                        // This is the safest method for Streamlit Cloud
+                                        window.location.href = url.toString();
+                                        
+                                        return;
+                                    } catch (e) {
+                                        console.error('Error sending barcode:', e);
+                                        updateStatus('❌ เกิดข้อผิดพลาดในการส่งข้อมูล: ' + e.message, 'error');
+                                        // Continue scanning if error
+                                        if (scanning) {
+                                            requestAnimationFrame(scanBarcode);
+                                        }
+                                    }
+                                } else {
+                                    console.warn('⚠️ Barcode data is empty');
                                 }
                             }
                         } catch (e) {
