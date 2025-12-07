@@ -766,11 +766,11 @@ def main():
         st.divider()
         
         # ตรวจสอบข้อมูลที่มีอยู่แล้ว
-        session = get_session()
+        db_session = get_session()
         try:
-            existing_products = session.query(Product).count()
-            existing_menus = session.query(Menu).count()
-            existing_categories = session.query(Category).count()
+            existing_products = db_session.query(Product).count()
+            existing_menus = db_session.query(Menu).count()
+            existing_categories = db_session.query(Category).count()
             
             st.markdown("#### 📊 ข้อมูลปัจจุบัน")
             col1, col2, col3 = st.columns(3)
@@ -781,7 +781,7 @@ def main():
             with col3:
                 st.metric("เมนู", existing_menus)
         finally:
-            session.close()
+            db_session.close()
         
         st.divider()
         
