@@ -66,6 +66,23 @@ def barcode_scanner_realtime():
         <meta charset="UTF-8">
         <title>Real-time Barcode Scanner</title>
         <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+        <script>
+            // Check if jsQR loaded successfully
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    if (typeof jsQR === 'undefined') {
+                        console.error('❌ jsQR library failed to load!');
+                        const statusDiv = document.getElementById('status');
+                        if (statusDiv) {
+                            statusDiv.textContent = '❌ ไม่สามารถโหลด jsQR library ได้ กรุณารีเฟรชหน้าเว็บ';
+                            statusDiv.className = 'status-error';
+                        }
+                    } else {
+                        console.log('✅ jsQR library loaded successfully');
+                    }
+                }, 1500);
+            });
+        </script>
         <style>
             * {
                 margin: 0;
@@ -296,28 +313,44 @@ def barcode_scanner_realtime():
                     
                     // Use jsQR to decode barcode
                     if (typeof jsQR !== 'undefined') {
-                        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                            inversionAttempts: "dontInvert",
-                        });
-                        
-                        if (code) {
-                            // Found barcode!
-                            const barcodeData = code.data;
-                            updateStatus('✅ พบบาร์โค๊ด: ' + barcodeData, 'success');
+                        try {
+                            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: "dontInvert",
+                            });
                             
-                            // Send result to Streamlit via URL parameter
-                            const currentUrl = window.location.href;
-                            const url = new URL(currentUrl);
-                            url.searchParams.set('barcode', barcodeData);
-                            
-                            // Reload page with barcode parameter
-                            window.location.href = url.toString();
-                            
-                            // Stop scanning
-                            setTimeout(() => {
+                            if (code) {
+                                // Found barcode!
+                                const barcodeData = code.data;
+                                console.log('✅ Barcode found:', barcodeData);
+                                updateStatus('✅ พบบาร์โค๊ด: ' + barcodeData, 'success');
+                                
+                                // Stop scanning immediately
                                 stopScanner();
-                            }, 1000);
-                            return;
+                                
+                                // Send result to Streamlit via URL parameter
+                                try {
+                                    const currentUrl = window.location.href;
+                                    const url = new URL(currentUrl);
+                                    url.searchParams.set('barcode', barcodeData);
+                                    
+                                    // Reload page with barcode parameter
+                                    console.log('Redirecting to:', url.toString());
+                                    window.location.href = url.toString();
+                                    return;
+                                } catch (e) {
+                                    console.error('Error sending barcode:', e);
+                                    updateStatus('❌ เกิดข้อผิดพลาดในการส่งข้อมูล', 'error');
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error decoding barcode:', e);
+                        }
+                    } else {
+                        // jsQR not loaded - show error once
+                        if (scanning && !window.jsQRWarningShown) {
+                            console.error('❌ jsQR library not loaded!');
+                            updateStatus('⚠️ กำลังโหลด jsQR library... กรุณารอสักครู่', 'error');
+                            window.jsQRWarningShown = true;
                         }
                     }
                 }
@@ -350,7 +383,7 @@ def barcode_scanner_realtime():
         height=600
     )
     
-    # Check for scanned barcode from URL
+    # Check for scanned barcode from URL or session state
     try:
         if hasattr(st, 'query_params'):
             query_params_raw = st.query_params
@@ -365,16 +398,30 @@ def barcode_scanner_realtime():
     except:
         query_params = {}
     
+    # Check URL parameter first
     if 'barcode' in query_params:
-        barcode = query_params['barcode'][0]
-        # Clear query params
-        try:
-            if hasattr(st, 'query_params'):
-                st.query_params.clear()
-            else:
-                st.experimental_set_query_params()
-        except:
-            pass
+        barcode = query_params['barcode'][0] if isinstance(query_params['barcode'], list) else query_params['barcode']
+        if barcode:
+            # Clear query params
+            try:
+                if hasattr(st, 'query_params'):
+                    # Create new dict without barcode
+                    new_params = dict(st.query_params)
+                    if 'barcode' in new_params:
+                        del new_params['barcode']
+                        st.query_params = new_params
+                else:
+                    st.experimental_set_query_params()
+            except Exception as e:
+                print(f"[DEBUG] Error clearing query params: {e}")
+            print(f"[DEBUG] Barcode scanned from URL: {barcode}")
+            return barcode
+    
+    # Check session state (for postMessage communication)
+    if 'scanned_barcode_realtime' in st.session_state:
+        barcode = st.session_state['scanned_barcode_realtime']
+        del st.session_state['scanned_barcode_realtime']
+        print(f"[DEBUG] Barcode scanned from session state: {barcode}")
         return barcode
     
     return None
