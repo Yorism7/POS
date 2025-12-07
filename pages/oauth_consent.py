@@ -49,6 +49,11 @@ def main():
     
     # Get OAuth parameters from query string
     query_params = st.experimental_get_query_params()
+    
+    # Debug: Show all query parameters
+    with st.expander("🔍 Debug: Query Parameters"):
+        st.json(dict(query_params))
+    
     client_id = query_params.get('client_id', [None])[0]
     redirect_uri = query_params.get('redirect_uri', [None])[0]
     scope = query_params.get('scope', ['read'])[0]
@@ -59,6 +64,52 @@ def main():
     if not client_id or not redirect_uri:
         st.error("❌ Invalid OAuth request: Missing client_id or redirect_uri")
         st.info("💡 Required parameters: client_id, redirect_uri")
+        
+        st.divider()
+        st.subheader("📖 วิธีใช้งาน OAuth Server")
+        
+        st.markdown("""
+        ### ขั้นตอนที่ 1: สร้าง OAuth App ใน Supabase
+        
+        1. ไปที่ **Supabase Dashboard** > **Authentication** > **OAuth Apps**
+        2. กด **"New OAuth App"**
+        3. ตั้งค่า:
+           - **Name**: ชื่อแอปพลิเคชัน
+           - **Redirect URIs**: `https://your-app.com/callback`
+        4. **คัดลอก Client ID และ Client Secret**
+        
+        ### ขั้นตอนที่ 2: ทดสอบ OAuth Flow
+        
+        **ตัวอย่าง Authorization URL:**
+        ```
+        https://pos-ez.streamlit.app/oauth/consent?
+        client_id=YOUR_CLIENT_ID&
+        redirect_uri=https://your-app.com/callback&
+        response_type=code&
+        scope=read&
+        state=random-state-string
+        ```
+        
+        **หรือใช้ลิงก์ทดสอบ:**
+        """)
+        
+        # Test form
+        with st.form("test_oauth_form"):
+            st.subheader("🧪 ทดสอบ OAuth Flow")
+            test_client_id = st.text_input("Client ID", placeholder="your-client-id")
+            test_redirect_uri = st.text_input("Redirect URI", placeholder="https://your-app.com/callback", value="https://example.com/callback")
+            test_scope = st.text_input("Scope", value="read")
+            test_state = st.text_input("State (optional)", value="test-state-123")
+            
+            if st.form_submit_button("🔗 สร้าง Authorization URL", type="primary", use_container_width=True):
+                if test_client_id and test_redirect_uri:
+                    auth_url = f"/oauth/consent?client_id={test_client_id}&redirect_uri={test_redirect_uri}&response_type=code&scope={test_scope}&state={test_state}"
+                    st.success("✅ สร้าง URL สำเร็จ!")
+                    st.code(auth_url, language=None)
+                    st.markdown(f'<a href="{auth_url}" target="_blank">🔗 เปิด Authorization URL</a>', unsafe_allow_html=True)
+                else:
+                    st.warning("⚠️ กรุณากรอก Client ID และ Redirect URI")
+        
         return
     
     if response_type != 'code':
