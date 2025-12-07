@@ -30,23 +30,29 @@ Transaction Mode เหมาะสำหรับ **serverless/edge functions**
 2. **หา Connection Pooler URL**
    - กดปุ่ม **"Connect"** (ด้านบนของหน้า)
    - เลือก **"Transaction mode"** (port 6543)
-   - คัดลอก Connection string หรือแยกข้อมูล:
-     - **Host**: `db.xxxxx.supabase.co` (เหมือนเดิม)
+   - กด **"View parameters"** เพื่อดูข้อมูลแยก
+   - คัดลอกข้อมูลต่อไปนี้:
+     - **Host**: `aws-1-ap-southeast-1.pooler.supabase.com` (รูปแบบ: `aws-X-REGION.pooler.supabase.com`)
      - **Port**: `6543` (Transaction mode)
-     - **User**: `postgres`
-     - **Password**: (รหัสผ่าน Database)
+     - **User**: `postgres.thvvvsyujfzntvepmvzo` (รูปแบบ: `postgres.PROJECT_REF`)
+     - **Password**: (รหัสผ่าน Database - ต้องไปดูใน Database Settings)
      - **Database**: `postgres`
 
 3. **อัปเดต Streamlit Cloud Secrets**
    ```toml
    [database]
    type = "postgresql"
-   host = "db.thvvvsyujfzntvepmvzo.supabase.co"
-   port = 6543  # ⬅️ เปลี่ยนเป็น 6543 สำหรับ Transaction mode
-   user = "postgres"
-   password = "your-actual-password"
+   host = "aws-1-ap-southeast-1.pooler.supabase.com"  # ⬅️ Transaction pooler host
+   port = 6543  # ⬅️ Transaction mode pooler
+   user = "postgres.thvvvsyujfzntvepmvzo"  # ⬅️ Transaction pooler user (รูปแบบ: postgres.PROJECT_REF)
+   password = "your-actual-password"  # ⬅️ Database password
    database = "postgres"
    ```
+   
+   **⚠️ สิ่งสำคัญ:**
+   - **Host**: ต้องเป็น Transaction pooler host (`aws-X-REGION.pooler.supabase.com`)
+   - **User**: ต้องเป็น `postgres.PROJECT_REF` (ไม่ใช่แค่ `postgres`)
+   - **Port**: ต้องเป็น `6543` (Transaction mode)
 
 4. **Save และ Deploy อีกครั้ง**
 

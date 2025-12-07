@@ -18,15 +18,39 @@
 # ⚠️ สำคัญ: ใช้ Connection Pooler (Transaction Mode) สำหรับ Streamlit Cloud
 # เพราะ Streamlit Cloud ไม่รองรับ IPv6 (Direct connection ใช้ IPv6)
 # 
-# Transaction Mode (port 6543) - แนะนำสำหรับ serverless/edge functions
-# Session Mode (port 5432) - สำหรับ persistent backend
+# ========================================
+# Transaction Mode Pooler (แนะนำสำหรับ Streamlit Cloud)
+# ========================================
+# วิธีหา:
+# 1. ไปที่ Supabase Dashboard > Settings > Database > กด "Connect"
+# 2. เลือก "Transaction mode" (port 6543)
+# 3. ดูใน "View parameters":
+#    - Host: aws-1-ap-southeast-1.pooler.supabase.com
+#    - Port: 6543
+#    - User: postgres.thvvvsyujfzntvepmvzo
+#    - Password: (รหัสผ่าน Database)
+#    - Database: postgres
+#
+# ========================================
+# Direct Connection (สำหรับ Local Development เท่านั้น)
+# ========================================
+# ⚠️ ไม่ใช้กับ Streamlit Cloud (ไม่รองรับ IPv6)
+# วิธีหา:
+# 1. ไปที่ Supabase Dashboard > Settings > Database > กด "Connect"
+# 2. เลือก "Direct connection" (port 5432)
+# 3. ดูใน "View parameters":
+#    - Host: db.thvvvsyujfzntvepmvzo.supabase.co
+#    - Port: 5432
+#    - User: postgres
+#    - Password: (รหัสผ่าน Database)
+#    - Database: postgres
+
 [database]
 type = "postgresql"
-host = "db.thvvvsyujfzntvepmvzo.supabase.co"
+host = "aws-1-ap-southeast-1.pooler.supabase.com"  # ⬅️ Transaction pooler host (สำหรับ Streamlit Cloud)
 port = 6543  # ⬅️ Transaction mode pooler (แนะนำสำหรับ Streamlit Cloud)
-# port = 5432  # ⬅️ หรือ Session mode pooler (ถ้า transaction mode ไม่ได้)
-user = "postgres"
-password = "your-database-password-here"
+user = "postgres.thvvvsyujfzntvepmvzo"  # ⬅️ Transaction pooler user (รูปแบบ: postgres.PROJECT_REF)
+password = "your-database-password-here"  # ⬅️ แก้ไข: ใส่ password จริง
 database = "postgres"
 
 # สำหรับ Supabase Auth + OAuth (Optional)
@@ -69,10 +93,10 @@ redirect_url = "https://pos-ez.streamlit.app/auth/callback"
 ```toml
 [database]
 type = "postgresql"
-host = "db.thvvvsyujfzntvepmvzo.supabase.co"
+host = "aws-1-ap-southeast-1.pooler.supabase.com"  # Transaction pooler host
 port = 6543  # Transaction mode pooler (แนะนำสำหรับ Streamlit Cloud)
-user = "postgres"
-password = "MySecurePassword123!"
+user = "postgres.thvvvsyujfzntvepmvzo"  # Transaction pooler user (รูปแบบ: postgres.PROJECT_REF)
+password = "MySecurePassword123!"  # Database password
 database = "postgres"
 
 [supabase]
@@ -85,9 +109,11 @@ redirect_url = "https://your-app-name.streamlit.app/auth/callback"
 
 ## 📋 Checklist ก่อน Deploy:
 
-- [ ] แก้ไข `password` ใน `[database]` section
+- [ ] แก้ไข `host` ใน `[database]` section (aws-1-ap-southeast-1.pooler.supabase.com)
+- [ ] แก้ไข `user` ใน `[database]` section (postgres.thvvvsyujfzntvepmvzo)
+- [ ] แก้ไข `password` ใน `[database]` section (ใส่ password จริง)
+- [ ] ตรวจสอบว่า `port` เป็น 6543 (Transaction mode pooler)
 - [ ] แก้ไข `redirect_url` ใน `[supabase]` section
-- [ ] ตรวจสอบว่า `host` ถูกต้อง (db.thvvvsyujfzntvepmvzo.supabase.co)
 - [ ] ตรวจสอบว่า `url` ถูกต้อง (https://thvvvsyujfzntvepmvzo.supabase.co)
 - [ ] ตรวจสอบว่า `publishable_key` ถูกต้อง
 - [ ] คัดลอกทั้งหมดไปวางใน Streamlit Cloud Secrets

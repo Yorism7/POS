@@ -25,9 +25,26 @@ def get_database_url():
     """
     # Try Streamlit secrets first (for Streamlit Cloud)
     try:
-        if hasattr(st, 'secrets') and 'database' in st.secrets:
+        # Check if Streamlit secrets are available
+        if not hasattr(st, 'secrets'):
+            print(f"[DEBUG] ⚠️ st.secrets not available")
+        elif 'database' not in st.secrets:
+            print(f"[DEBUG] ⚠️ 'database' not found in st.secrets")
+            print(f"[DEBUG] Available secrets keys: {list(st.secrets.keys()) if hasattr(st, 'secrets') else 'N/A'}")
+        else:
             db_config = st.secrets['database']
             db_type = db_config.get('type', 'sqlite').lower()
+            
+            print(f"[DEBUG] ========================================")
+            print(f"[DEBUG] Reading database config from Streamlit secrets:")
+            print(f"[DEBUG] ========================================")
+            print(f"[DEBUG]   type: {db_type}")
+            print(f"[DEBUG]   host: {db_config.get('host', 'NOT SET')}")
+            print(f"[DEBUG]   port: {db_config.get('port', 'NOT SET')}")
+            print(f"[DEBUG]   user: {db_config.get('user', 'NOT SET')}")
+            print(f"[DEBUG]   database: {db_config.get('database', 'NOT SET')}")
+            print(f"[DEBUG]   password: {'***' if db_config.get('password') else 'MISSING'}")
+            print(f"[DEBUG] ========================================")
             
             if db_type == 'postgresql':
                 # PostgreSQL connection
@@ -37,8 +54,22 @@ def get_database_url():
                 port = db_config.get('port', 5432)
                 database = db_config.get('database')
                 
+                # Check if using Direct Connection (will fail on Streamlit Cloud)
+                if host and 'db.' in host and '.supabase.co' in host and port == 5432:
+                    print(f"[DEBUG] ⚠️ WARNING: Using Direct Connection (IPv6 only)")
+                    print(f"[DEBUG] ⚠️ This will FAIL on Streamlit Cloud!")
+                    print(f"[DEBUG] ⚠️ Please use Transaction Pooler instead:")
+                    print(f"[DEBUG] ⚠️   host: aws-X-REGION.pooler.supabase.com")
+                    print(f"[DEBUG] ⚠️   port: 6543")
+                    print(f"[DEBUG] ⚠️   user: postgres.PROJECT_REF")
+                
                 if all([user, password, host, database]):
-                    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+                    database_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+                    print(f"[DEBUG] ✅ Using PostgreSQL connection: postgresql://{user}:***@{host}:{port}/{database}")
+                    return database_url
+                else:
+                    missing = [k for k, v in {'user': user, 'password': password, 'host': host, 'database': database}.items() if not v]
+                    print(f"[DEBUG] ❌ Missing required fields: {missing}")
             
             elif db_type == 'mysql':
                 # MySQL connection
@@ -56,11 +87,19 @@ def get_database_url():
                 db_path = db_config.get('path', 'data/pos.db')
                 return f"sqlite:///{db_path}"
     except Exception as e:
-        print(f"Error reading Streamlit secrets: {e}")
+        print(f"[DEBUG] ❌ Error reading Streamlit secrets: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Try environment variables
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
+        # Check if it's Direct Connection (will fail on Streamlit Cloud)
+        if 'db.' in database_url and '.supabase.co:5432' in database_url:
+            print(f"[DEBUG] ⚠️ WARNING: DATABASE_URL is Direct Connection (IPv6 only)")
+            print(f"[DEBUG] ⚠️ This will fail on Streamlit Cloud! Use Transaction Pooler instead.")
+            print(f"[DEBUG] ⚠️ DATABASE_URL: {database_url.split('@')[0]}@***")
+        print(f"[DEBUG] ✅ Using DATABASE_URL from environment variable")
         return database_url
     
     # Default to SQLite (local development)
@@ -85,7 +124,9 @@ def get_database_url():
         os.makedirs(DB_DIR, exist_ok=True)
     
     DB_PATH = os.path.join(DB_DIR, "pos.db")
-    return f"sqlite:///{DB_PATH}"
+    sqlite_url = f"sqlite:///{DB_PATH}"
+    print(f"[DEBUG] ⚠️ No database config found, defaulting to SQLite: {sqlite_url}")
+    return sqlite_url
 
 # Export DB_PATH and DB_DIR for backward compatibility
 # Note: These are only valid when using SQLite
@@ -105,6 +146,15 @@ except:
 
 # Get database URL
 DATABASE_URL = get_database_url()
+
+# Debug: Show final database URL (hide password)
+if DATABASE_URL.startswith('postgresql://') or DATABASE_URL.startswith('mysql://'):
+    # Hide password in debug output
+    import re
+    safe_url = re.sub(r':([^:@]+)@', ':***@', DATABASE_URL)
+    print(f"[DEBUG] 🔗 Final DATABASE_URL: {safe_url}")
+else:
+    print(f"[DEBUG] 🔗 Final DATABASE_URL: {DATABASE_URL}")
 
 # Determine database type
 is_postgresql = DATABASE_URL.startswith('postgresql://')
