@@ -16,6 +16,9 @@ qrcode[pil]>=7.4.2
 psycopg2-binary>=2.9.0  # PostgreSQL
 pymysql>=1.1.0  # MySQL
 
+# Supabase Auth (optional - for OAuth authentication)
+supabase>=2.0.0  # Supabase client for Auth and OAuth
+
 # Optional dependencies - ลองติดตั้งได้ (ถ้าไม่ติดตั้งได้จะใช้ fallback)
 # streamlit-camera-input-live>=0.2.0  # อาจจะติดตั้งได้ ลองดู
 
