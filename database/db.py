@@ -121,11 +121,24 @@ if is_sqlite:
     )
 elif is_postgresql:
     # PostgreSQL specific settings
-    engine = create_engine(
-        DATABASE_URL,
-        pool_pre_ping=True,  # Verify connections before using
-        echo=False
-    )
+    # For Connection Pooler (Transaction Mode), disable prepared statements
+    # Transaction mode does not support prepared statements
+    pooler_mode = os.environ.get('SUPABASE_POOLER_MODE', '')
+    if '6543' in DATABASE_URL or pooler_mode == 'transaction':
+        # Transaction mode pooler - disable prepared statements
+        engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,  # Verify connections before using
+            connect_args={"options": "-c statement_timeout=30000"},  # 30 second timeout
+            echo=False
+        )
+    else:
+        # Direct connection or Session mode - can use prepared statements
+        engine = create_engine(
+            DATABASE_URL,
+            pool_pre_ping=True,  # Verify connections before using
+            echo=False
+        )
 elif is_mysql:
     # MySQL specific settings
     engine = create_engine(

@@ -15,10 +15,16 @@
 
 ```toml
 # สำหรับ Supabase Database (PostgreSQL)
+# ⚠️ สำคัญ: ใช้ Connection Pooler (Transaction Mode) สำหรับ Streamlit Cloud
+# เพราะ Streamlit Cloud ไม่รองรับ IPv6 (Direct connection ใช้ IPv6)
+# 
+# Transaction Mode (port 6543) - แนะนำสำหรับ serverless/edge functions
+# Session Mode (port 5432) - สำหรับ persistent backend
 [database]
 type = "postgresql"
 host = "db.thvvvsyujfzntvepmvzo.supabase.co"
-port = 5432
+port = 6543  # ⬅️ Transaction mode pooler (แนะนำสำหรับ Streamlit Cloud)
+# port = 5432  # ⬅️ หรือ Session mode pooler (ถ้า transaction mode ไม่ได้)
 user = "postgres"
 password = "your-database-password-here"
 database = "postgres"
@@ -64,7 +70,7 @@ redirect_url = "https://pos-ez.streamlit.app/auth/callback"
 [database]
 type = "postgresql"
 host = "db.thvvvsyujfzntvepmvzo.supabase.co"
-port = 5432
+port = 6543  # Transaction mode pooler (แนะนำสำหรับ Streamlit Cloud)
 user = "postgres"
 password = "MySecurePassword123!"
 database = "postgres"
@@ -112,9 +118,28 @@ redirect_url = "https://your-app-name.streamlit.app/auth/callback"
 
 ## ❌ ถ้าเชื่อมต่อไม่ได้:
 
-1. **ตรวจสอบ password** - ต้องตรงกับที่ตั้งไว้ใน Supabase
-2. **ตรวจสอบ host** - ต้องเป็น `db.thvvvsyujfzntvepmvzo.supabase.co`
-3. **ตรวจสอบ port** - ต้องเป็น `5432`
-4. **ดู logs** - ไปที่ Streamlit Cloud > App > Logs
-5. **ลอง reset password** - ไปที่ Supabase > Settings > Database > Reset database password
+### ปัญหา: "Cannot assign requested address" หรือ "Connection refused"
+
+**สาเหตุ:** Streamlit Cloud ไม่รองรับ IPv6 (Direct connection ใช้ IPv6)
+
+**วิธีแก้:**
+1. **ใช้ Connection Pooler แทน Direct Connection**
+   - ไปที่ Supabase Dashboard > Settings > Database
+   - กด "Connect" button
+   - เลือก **"Transaction mode"** (port 6543) - เหมาะสำหรับ serverless
+   - หรือเลือก **"Session mode"** (port 5432) - สำหรับ persistent backend
+   - คัดลอก Connection string หรือแยกข้อมูล
+
+2. **อัปเดต port ใน Streamlit Cloud Secrets:**
+   - ใช้ `port = 6543` สำหรับ Transaction mode (แนะนำ)
+   - หรือ `port = 5432` สำหรับ Session mode
+
+3. **ตรวจสอบข้อมูลอื่นๆ:**
+   - ตรวจสอบ password - ต้องตรงกับที่ตั้งไว้ใน Supabase
+   - ตรวจสอบ host - ต้องเป็น `db.thvvvsyujfzntvepmvzo.supabase.co`
+   - ดู logs - ไปที่ Streamlit Cloud > App > Logs
+   - ลอง reset password - ไปที่ Supabase > Settings > Database > Reset database password
+
+### 📖 อ่านเพิ่มเติม:
+- [Supabase Connection Pooler Documentation](https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler)
 
