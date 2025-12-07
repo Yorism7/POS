@@ -19,12 +19,11 @@ import plotly.express as px
 st.set_page_config(page_title="ตั้งค่า", page_icon="⚙️", layout="wide")
 
 def main():
-    st.title("⚙️ ตั้งค่า")
+    # Check authentication and redirect to login if not authenticated
+    from utils.auth import require_auth, require_role
+    require_auth()
     
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
-        return
+    st.title("⚙️ ตั้งค่า")
     
     # Check if admin
     if st.session_state.role != 'admin':
@@ -50,11 +49,49 @@ def main():
         if 'store_tax_id' not in st.session_state:
             st.session_state.store_tax_id = ""
         
+        # PromptPay QR Settings
+        if 'promptpay_phone' not in st.session_state:
+            st.session_state.promptpay_phone = ""
+        if 'promptpay_citizen_id' not in st.session_state:
+            st.session_state.promptpay_citizen_id = ""
+        if 'promptpay_type' not in st.session_state:
+            st.session_state.promptpay_type = "phone"  # phone or citizen_id
+        
         with st.form("store_settings_form"):
+            st.markdown("#### 📋 ข้อมูลร้าน")
             store_name = st.text_input("ชื่อร้าน *", value=st.session_state.store_name)
             store_address = st.text_area("ที่อยู่", value=st.session_state.store_address)
             store_phone = st.text_input("เบอร์โทรศัพท์", value=st.session_state.store_phone)
             store_tax_id = st.text_input("เลขประจำตัวผู้เสียภาษี", value=st.session_state.store_tax_id)
+            
+            st.divider()
+            st.markdown("#### 💰 ตั้งค่าพร้อมเพย์ (PromptPay)")
+            st.info("💡 ตั้งค่าข้อมูลพร้อมเพย์สำหรับสร้าง QR Code ชำระเงิน")
+            
+            promptpay_type = st.radio(
+                "ประเภทบัญชีพร้อมเพย์",
+                ["phone", "citizen_id"],
+                format_func=lambda x: "เบอร์โทรศัพท์" if x == "phone" else "เลขบัตรประชาชน",
+                index=0 if st.session_state.promptpay_type == "phone" else 1,
+                horizontal=True
+            )
+            
+            if promptpay_type == "phone":
+                promptpay_phone = st.text_input(
+                    "เบอร์โทรศัพท์พร้อมเพย์ *",
+                    value=st.session_state.promptpay_phone,
+                    placeholder="08XXXXXXXX",
+                    help="กรอกเบอร์โทรศัพท์ที่ลงทะเบียนพร้อมเพย์ (ไม่ต้องใส่ - หรือเว้นวรรค)"
+                )
+                promptpay_citizen_id = ""
+            else:
+                promptpay_citizen_id = st.text_input(
+                    "เลขบัตรประชาชนพร้อมเพย์ *",
+                    value=st.session_state.promptpay_citizen_id,
+                    placeholder="1234567890123",
+                    help="กรอกเลขบัตรประชาชนที่ลงทะเบียนพร้อมเพย์ (13 หลัก)"
+                )
+                promptpay_phone = ""
             
             if st.form_submit_button("💾 บันทึก", type="primary", use_container_width=True):
                 if store_name:
@@ -62,6 +99,9 @@ def main():
                     st.session_state.store_address = store_address
                     st.session_state.store_phone = store_phone
                     st.session_state.store_tax_id = store_tax_id
+                    st.session_state.promptpay_type = promptpay_type
+                    st.session_state.promptpay_phone = promptpay_phone
+                    st.session_state.promptpay_citizen_id = promptpay_citizen_id
                     st.success("✅ บันทึกการตั้งค่าสำเร็จ")
                 else:
                     st.warning("⚠️ กรุณากรอกชื่อร้าน")
@@ -73,6 +113,21 @@ def main():
         st.write(f"ที่อยู่: {st.session_state.store_address or '-'}")
         st.write(f"เบอร์โทรศัพท์: {st.session_state.store_phone or '-'}")
         st.write(f"เลขประจำตัวผู้เสียภาษี: {st.session_state.store_tax_id or '-'}")
+        
+        st.divider()
+        st.write("**💰 ตั้งค่าพร้อมเพย์:**")
+        if st.session_state.promptpay_type == "phone":
+            if st.session_state.promptpay_phone:
+                st.write(f"ประเภท: เบอร์โทรศัพท์")
+                st.write(f"เบอร์โทรศัพท์: {st.session_state.promptpay_phone}")
+            else:
+                st.warning("⚠️ ยังไม่ได้ตั้งค่าเบอร์โทรศัพท์พร้อมเพย์")
+        else:
+            if st.session_state.promptpay_citizen_id:
+                st.write(f"ประเภท: เลขบัตรประชาชน")
+                st.write(f"เลขบัตรประชาชน: {st.session_state.promptpay_citizen_id}")
+            else:
+                st.warning("⚠️ ยังไม่ได้ตั้งค่าเลขบัตรประชาชนพร้อมเพย์")
     
     with tab2:
         st.subheader("🧾 ตั้งค่าใบเสร็จ")

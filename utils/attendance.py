@@ -190,3 +190,5 @@ def get_shifts_by_date_range(user_id: int, start_date: datetime, end_date: datet
     finally:
         session.close()
 
+
+

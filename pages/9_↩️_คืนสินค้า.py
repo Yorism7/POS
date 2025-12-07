@@ -98,12 +98,11 @@ def process_return(sale_id: int, return_items: list, reason: str, user_id: int):
         session.close()
 
 def main():
-    st.title("↩️ คืนสินค้า (Return/Refund)")
+    # Check authentication and redirect to login if not authenticated
+    from utils.auth import require_auth
+    require_auth()
     
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
-        return
+    st.title("↩️ คืนสินค้า (Return/Refund)")
     
     # Search sale
     col1, col2 = st.columns([2, 1])
@@ -212,4 +211,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 

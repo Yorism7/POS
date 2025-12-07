@@ -145,6 +145,10 @@ def init_session_state():
         st.session_state.role = None
     if 'last_activity' not in st.session_state:
         st.session_state.last_activity = None
+    if 'remember_me' not in st.session_state:
+        st.session_state.remember_me = False
+    if 'saved_username' not in st.session_state:
+        st.session_state.saved_username = None
 
 def create_default_admin():
     """Create default admin user if not exists"""
@@ -173,9 +177,13 @@ def login_page():
     """Login page"""
     st.title("🔐 เข้าสู่ระบบ POS")
     
+    # Load saved username if exists
+    saved_username = st.session_state.get('saved_username', '')
+    
     with st.form("login_form"):
-        username = st.text_input("ชื่อผู้ใช้")
+        username = st.text_input("ชื่อผู้ใช้", value=saved_username)
         password = st.text_input("รหัสผ่าน", type="password")
+        remember_me = st.checkbox("💾 จดจำการล็อคอิน", value=st.session_state.get('remember_me', False))
         submit = st.form_submit_button("เข้าสู่ระบบ", use_container_width=True)
         
         if submit:
@@ -203,6 +211,15 @@ def login_page():
                         st.session_state.username = user.username
                         st.session_state.role = user.role
                         st.session_state.last_activity = datetime.now()
+                        
+                        # Save login info if remember me is checked
+                        if remember_me:
+                            st.session_state.remember_me = True
+                            st.session_state.saved_username = user.username
+                        else:
+                            st.session_state.remember_me = False
+                            st.session_state.saved_username = None
+                        
                         st.success(f"✅ ยินดีต้อนรับ {user.username}!")
                         st.rerun()
                     else:

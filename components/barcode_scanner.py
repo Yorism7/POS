@@ -1,241 +1,95 @@
 """
 Barcode Scanner Component using Camera
-Uses HTML5 getUserMedia API with JavaScript barcode scanner
+Uses Streamlit's built-in st.camera_input and pyzbar for barcode scanning
 """
 
-import streamlit.components.v1 as components
+import streamlit as st
+from PIL import Image
+import numpy as np
+try:
+    from pyzbar import pyzbar
+except ImportError:
+    pyzbar = None
 
-def barcode_scanner_component(key: str = "barcode_scanner"):
-    """Create a barcode scanner component using camera"""
-    
-    html_code = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Barcode Scanner</title>
-        <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
-        <style>
-            #scanner-container {
-                position: relative;
-                width: 100%;
-                max-width: 640px;
-                margin: 0 auto;
-            }
-            #scanner {
-                width: 100%;
-                height: auto;
-                border: 2px solid #4CAF50;
-                border-radius: 8px;
-            }
-            #scanner-overlay {
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                width: 80%;
-                height: 30%;
-                border: 3px solid #4CAF50;
-                border-radius: 8px;
-                pointer-events: none;
-            }
-            .scanner-controls {
-                margin-top: 10px;
-                text-align: center;
-            }
-            .scanner-btn {
-                padding: 10px 20px;
-                margin: 5px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                font-size: 16px;
-            }
-            .scanner-btn:hover {
-                background-color: #45a049;
-            }
-            .scanner-btn.stop {
-                background-color: #f44336;
-            }
-            .scanner-btn.stop:hover {
-                background-color: #da190b;
-            }
-            #scanner-status {
-                margin-top: 10px;
-                padding: 10px;
-                text-align: center;
-                font-weight: bold;
-            }
-            #scanner-status.scanning {
-                color: #4CAF50;
-            }
-            #scanner-status.stopped {
-                color: #f44336;
-            }
-        </style>
-    </head>
-    <body>
-        <div id="scanner-container">
-            <video id="scanner" autoplay playsinline></video>
-            <div id="scanner-overlay"></div>
-        </div>
-        <div class="scanner-controls">
-            <button class="scanner-btn" id="start-btn" onclick="startScanner()">📷 เริ่มสแกน</button>
-            <button class="scanner-btn stop" id="stop-btn" onclick="stopScanner()" style="display:none;">⏹️ หยุดสแกน</button>
-        </div>
-        <div id="scanner-status" class="stopped">กดปุ่มเพื่อเริ่มสแกนบาร์โค๊ด</div>
-        
-        <script>
-            let stream = null;
-            let scanning = false;
-            
-            function startScanner() {
-                if (scanning) return;
-                
-                const video = document.getElementById('scanner');
-                const startBtn = document.getElementById('start-btn');
-                const stopBtn = document.getElementById('stop-btn');
-                const status = document.getElementById('scanner-status');
-                
-                navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment', // ใช้กล้องหลังบนมือถือ
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                })
-                .then(function(mediaStream) {
-                    stream = mediaStream;
-                    video.srcObject = stream;
-                    scanning = true;
-                    
-                    startBtn.style.display = 'none';
-                    stopBtn.style.display = 'inline-block';
-                    status.textContent = 'กำลังสแกนบาร์โค๊ด...';
-                    status.className = 'scanning';
-                    
-                    // Initialize QuaggaJS
-                    Quagga.init({
-                        inputStream: {
-                            name: "Live",
-                            type: "LiveStream",
-                            target: video,
-                            constraints: {
-                                width: 640,
-                                height: 480,
-                                facingMode: "environment"
-                            }
-                        },
-                        decoder: {
-                            readers: [
-                                "code_128_reader",
-                                "ean_reader",
-                                "ean_8_reader",
-                                "code_39_reader",
-                                "code_39_vin_reader",
-                                "codabar_reader",
-                                "upc_reader",
-                                "upc_e_reader",
-                                "i2of5_reader"
-                            ]
-                        },
-                        locate: true
-                    }, function(err) {
-                        if (err) {
-                            console.error('QuaggaJS initialization error:', err);
-                            status.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
-                            status.className = 'stopped';
-                            return;
-                        }
-                        Quagga.start();
-                    });
-                    
-                    Quagga.onDetected(function(result) {
-                        const code = result.codeResult.code;
-                        console.log('Barcode detected:', code);
-                        
-                        // Play beep sound
-                        playBeepSound();
-                        
-                        // Send barcode to Streamlit
-                        window.parent.postMessage({
-                            type: 'streamlit:setComponentValue',
-                            value: code
-                        }, '*');
-                        
-                        status.textContent = 'พบบาร์โค๊ด: ' + code;
-                        status.className = 'scanning';
-                        
-                        // Stop scanning after detection
-                        setTimeout(() => {
-                            stopScanner();
-                        }, 1000);
-                    });
-                    
-                    // Function to play beep sound
-                    function playBeepSound() {
-                        // Create audio context for beep sound
-                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        const oscillator = audioContext.createOscillator();
-                        const gainNode = audioContext.createGain();
-                        
-                        oscillator.connect(gainNode);
-                        gainNode.connect(audioContext.destination);
-                        
-                        oscillator.frequency.value = 800; // 800 Hz beep
-                        oscillator.type = 'sine';
-                        
-                        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-                        
-                        oscillator.start(audioContext.currentTime);
-                        oscillator.stop(audioContext.currentTime + 0.1);
-                    }
-                })
-                .catch(function(err) {
-                    console.error('Error accessing camera:', err);
-                    status.textContent = 'ไม่สามารถเข้าถึงกล้องได้: ' + err.message;
-                    status.className = 'stopped';
-                });
-            }
-            
-            function stopScanner() {
-                if (!scanning) return;
-                
-                const startBtn = document.getElementById('start-btn');
-                const stopBtn = document.getElementById('stop-btn');
-                const status = document.getElementById('scanner-status');
-                const video = document.getElementById('scanner');
-                
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                    stream = null;
-                }
-                
-                if (Quagga) {
-                    Quagga.stop();
-                }
-                
-                video.srcObject = null;
-                scanning = false;
-                
-                startBtn.style.display = 'inline-block';
-                stopBtn.style.display = 'none';
-                status.textContent = 'หยุดสแกนแล้ว';
-                status.className = 'stopped';
-            }
-            
-            // Cleanup on page unload
-            window.addEventListener('beforeunload', function() {
-                stopScanner();
-            });
-        </script>
-    </body>
-    </html>
+def barcode_scanner_component():
+    """Create a barcode scanner component using camera
+    Returns the scanned barcode value or None
     """
+    st.markdown("### 📷 สแกนบาร์โค๊ดด้วยกล้อง")
+    st.info("💡 **วิธีใช้งาน:** กดปุ่มกล้องด้านล่างเพื่อเปิดกล้องและถ่ายภาพบาร์โค๊ด")
     
-    return components.html(html_code, height=500, key=key)
-
+    # Check browser support
+    st.markdown("""
+    <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+    <small>⚠️ <strong>หมายเหตุ:</strong> ต้องใช้ HTTPS หรือ localhost และ Browser ที่รองรับ (Chrome, Firefox, Edge)</small>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    try:
+        # Use Streamlit's built-in camera input
+        # This will show a camera button that opens the camera when clicked
+        image = st.camera_input(
+            "📷 กดเพื่อเปิดกล้อง",
+            key="barcode_camera",
+            help="กดปุ่มนี้เพื่อเปิดกล้องและถ่ายภาพบาร์โค๊ด"
+        )
+        
+        if image is not None:
+            if pyzbar is None:
+                st.error("⚠️ ไม่พบ library pyzbar")
+                st.info("💡 กรุณาติดตั้งด้วย: pip install pyzbar")
+                # Fallback to manual input
+                barcode_input = st.text_input(
+                    "📷 พิมพ์บาร์โค๊ด",
+                    key="barcode_manual_pyzbar",
+                    placeholder="พิมพ์บาร์โค๊ดที่นี่...",
+                    help="พิมพ์บาร์โค๊ดแล้วกด Enter"
+                )
+                return barcode_input if barcode_input else None
+                
+            # Convert PIL Image to numpy array for pyzbar
+            img_array = np.array(image)
+            
+            # Decode barcode
+            barcodes = pyzbar.decode(img_array)
+            
+            if barcodes:
+                # Get first barcode
+                barcode_data = barcodes[0].data.decode('utf-8')
+                barcode_type = barcodes[0].type
+                
+                st.success(f"✅ พบบาร์โค๊ด: {barcode_data} (ประเภท: {barcode_type})")
+                
+                # Display image with barcode highlighted
+                st.image(image, caption=f"บาร์โค๊ดที่สแกน: {barcode_data}", use_container_width=True)
+                
+                # Auto-add to search
+                return barcode_data
+            else:
+                st.warning("⚠️ ไม่พบบาร์โค๊ดในภาพ กรุณาถ่ายภาพใหม่อีกครั้ง")
+                st.info("💡 หมายเหตุ: ต้องชี้กล้องให้เห็นบาร์โค๊ดชัดเจน")
+                return None
+        else:
+            # Show manual input option
+            st.divider()
+            st.subheader("หรือพิมพ์บาร์โค๊ดด้วยตนเอง")
+            barcode_input = st.text_input(
+                "📷 พิมพ์บาร์โค๊ด",
+                key="barcode_manual_camera",
+                placeholder="พิมพ์บาร์โค๊ดที่นี่...",
+                help="พิมพ์บาร์โค๊ดแล้วกด Enter"
+            )
+            return barcode_input if barcode_input else None
+            
+    except Exception as e:
+        st.warning(f"⚠️ เกิดข้อผิดพลาดในการใช้กล้อง: {str(e)}")
+        st.info("💡 กรุณาใช้วิธีพิมพ์บาร์โค๊ดแทน")
+        
+        # Fallback to manual input
+        barcode_input = st.text_input(
+            "📷 พิมพ์บาร์โค๊ด",
+            key="barcode_manual_error",
+            placeholder="พิมพ์บาร์โค๊ดที่นี่...",
+            help="พิมพ์บาร์โค๊ดแล้วกด Enter"
+        )
+        return barcode_input if barcode_input else None

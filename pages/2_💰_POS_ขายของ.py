@@ -80,12 +80,11 @@ def get_cart_discount() -> float:
     return st.session_state.get('cart_discount', 0.0)
 
 def main():
-    st.title("💰 POS - ระบบขายสินค้า")
+    # Check authentication and redirect to login if not authenticated
+    from utils.auth import require_auth
+    require_auth()
     
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
-        return
+    st.title("💰 POS - ระบบขายสินค้า")
     
     init_cart()
     
@@ -109,12 +108,14 @@ def main():
         
         if scanner_mode == "📷 ใช้กล้องมือถือ/เว็บแคม":
             st.info("💡 เปิดกล้องและชี้ไปที่บาร์โค๊ด ระบบจะสแกนอัตโนมัติ")
+            st.warning("⚠️ หมายเหตุ: การใช้กล้องต้องใช้ HTTPS หรือ localhost และ Browser ที่รองรับ (Chrome, Firefox, Edge)")
             
             # Camera barcode scanner
             try:
                 from components.barcode_scanner import barcode_scanner_component
-                scanned_barcode = barcode_scanner_component(key="camera_scanner")
+                scanned_barcode = barcode_scanner_component()
                 
+                # Check if barcode was scanned (component returns value)
                 if scanned_barcode:
                     st.session_state['barcode_search'] = scanned_barcode
                     st.session_state['last_barcode'] = scanned_barcode
@@ -464,40 +465,54 @@ def main():
             elif payment_method == "📱 QR Code (PromptPay)":
                 # Generate QR Code for payment
                 try:
-                    import qrcode
-                    from io import BytesIO
-                    import base64
+                    from utils.promptpay import generate_promptpay_qr, validate_promptpay_settings
                     
-                    # Get store phone from settings (default to empty)
-                    store_phone = st.session_state.get('store_phone', '')
+                    # Get PromptPay settings from session state
+                    promptpay_type = st.session_state.get('promptpay_type', 'phone')
+                    if promptpay_type == "phone":
+                        promptpay_id = st.session_state.get('promptpay_phone', '')
+                    else:
+                        promptpay_id = st.session_state.get('promptpay_citizen_id', '')
                     
-                    # Create QR Code data (PromptPay format - simplified)
-                    # In real implementation, this should follow PromptPay standard
-                    qr_data = f"00020101021153037645802TH2937{store_phone}54{final_total:.2f}5802TH6304"
+                    # Validate settings
+                    is_valid, error_msg = validate_promptpay_settings(promptpay_type, promptpay_id)
                     
-                    # Generate QR Code
-                    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-                    qr.add_data(qr_data)
-                    qr.make(fit=True)
+                    if not is_valid:
+                        st.error(f"⚠️ {error_msg}")
+                        st.warning("💡 กรุณาตั้งค่าพร้อมเพย์ในหน้า ⚙️ ตั้งค่า > 🏪 ตั้งค่าร้าน")
+                        st.info("📝 ไปที่: ตั้งค่า > ตั้งค่าร้าน > ตั้งค่าพร้อมเพย์ (PromptPay)")
+                        payment_reference = st.text_input("เลขที่อ้างอิงการโอน (ถ้ามี)", placeholder="เลขที่อ้างอิง...", key="qr_payment_ref")
+                    else:
+                        # Generate QR Code
+                        qr_image = generate_promptpay_qr(
+                            amount=final_total,
+                            promptpay_type=promptpay_type,
+                            promptpay_id=promptpay_id
+                        )
+                        
+                        if qr_image:
+                            # Display QR Code
+                            st.image(qr_image, caption=f"สแกนเพื่อชำระเงิน {format_currency(final_total)}", width=300)
+                            st.success("✅ QR Code พร้อมเพย์")
+                            st.info("💡 ลูกค้าสามารถสแกน QR Code นี้เพื่อชำระเงินผ่านแอปธนาคาร (พร้อมเพย์)")
+                            
+                            # Show account info
+                            account_type_text = "เบอร์โทรศัพท์" if promptpay_type == "phone" else "เลขบัตรประชาชน"
+                            st.caption(f"บัญชีพร้อมเพย์: {account_type_text} {promptpay_id}")
+                        else:
+                            st.error("⚠️ ไม่สามารถสร้าง QR Code ได้")
+                            st.info("💡 กรุณาตรวจสอบการตั้งค่าพร้อมเพย์")
+                        
+                        # Payment reference input
+                        payment_reference = st.text_input("เลขที่อ้างอิงการโอน (ถ้ามี)", placeholder="เลขที่อ้างอิง...", key="qr_payment_ref")
                     
-                    img = qr.make_image(fill_color="black", back_color="white")
-                    buf = BytesIO()
-                    img.save(buf, format="PNG")
-                    buf.seek(0)
-                    
-                    # Display QR Code
-                    st.image(buf, caption=f"สแกนเพื่อชำระเงิน {format_currency(final_total)}", width=300)
-                    st.info("💡 ลูกค้าสามารถสแกน QR Code นี้เพื่อชำระเงินผ่านแอปธนาคาร")
-                    
-                    # Payment reference input
-                    payment_reference = st.text_input("เลขที่อ้างอิงการโอน (ถ้ามี)", placeholder="เลขที่อ้างอิง...", key="qr_payment_ref")
-                    
-                except ImportError:
+                except ImportError as e:
                     st.warning("⚠️ ต้องการ library qrcode สำหรับสร้าง QR Code")
                     st.info("💡 ติดตั้งด้วย: pip install qrcode[pil]")
                     payment_reference = st.text_input("เลขที่อ้างอิงการโอน", placeholder="เลขที่อ้างอิง...", key="qr_payment_ref")
                 except Exception as e:
                     st.warning(f"⚠️ ไม่สามารถสร้าง QR Code: {str(e)}")
+                    st.info("💡 กรุณาตรวจสอบการตั้งค่าพร้อมเพย์ในหน้า ⚙️ ตั้งค่า")
                     payment_reference = st.text_input("เลขที่อ้างอิงการโอน", placeholder="เลขที่อ้างอิง...", key="qr_payment_ref")
             
             elif payment_method == "💳 บัตรเครดิต/เดบิต":

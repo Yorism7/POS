@@ -123,3 +123,5 @@ def get_all_expense_categories() -> List[ExpenseCategory]:
     finally:
         session.close()
 
+
+

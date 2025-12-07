@@ -37,3 +37,5 @@ def validate_barcode(barcode_value: str) -> bool:
         return False
     return True
 
+
+

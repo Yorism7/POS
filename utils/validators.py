@@ -69,3 +69,5 @@ def validate_stock_availability(product_id: int, requested_quantity: float) -> T
     finally:
         session.close()
 
+
+

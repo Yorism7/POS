@@ -20,12 +20,11 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 def main():
-    st.title("👥 จัดการผู้ใช้")
+    # Check authentication and redirect to login if not authenticated
+    from utils.auth import require_auth, require_role
+    require_auth()
     
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
-        return
+    st.title("👥 จัดการผู้ใช้")
     
     # Check if admin
     if st.session_state.role != 'admin':

@@ -111,3 +111,5 @@ def generate_tax_invoice(sale_id: int) -> str:
     finally:
         session.close()
 
+
+

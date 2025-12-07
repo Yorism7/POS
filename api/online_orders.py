@@ -136,3 +136,5 @@ def generate_qr_code_for_online_ordering() -> str:
     # that links to the online ordering page
     return "https://your-pos-system.com/order"
 
+
+

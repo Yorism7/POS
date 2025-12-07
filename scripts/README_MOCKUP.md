@@ -87,3 +87,5 @@ python scripts/create_mockup_data.py
 - สามารถลบหรือแก้ไขได้ตามต้องการ
 - รูปภาพใช้ URL จาก Unsplash (ต้องมีอินเทอร์เน็ต)
 
+
+

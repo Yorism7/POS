@@ -13,12 +13,11 @@ import pandas as pd
 st.set_page_config(page_title="จัดการสต็อค", page_icon="📦", layout="wide")
 
 def main():
-    st.title("📦 จัดการสต็อค")
+    # Check authentication and redirect to login if not authenticated
+    from utils.auth import require_auth
+    require_auth()
     
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
-        return
+    st.title("📦 จัดการสต็อค")
     
     # Tabs
     tab1, tab2, tab3, tab4 = st.tabs(["📋 รายการสินค้า", "➕ เพิ่มสินค้า", "📥 สต็อคเข้า", "📤 สต็อคออก"])

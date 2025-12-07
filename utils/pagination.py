@@ -30,3 +30,5 @@ def paginate_items(items: List[Any], page: int = 1, items_per_page: int = 10) ->
     
     return paginated_items, total_items, total_pages, page
 
+
+

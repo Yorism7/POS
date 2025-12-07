@@ -12,12 +12,11 @@ from utils.pagination import paginate_items
 st.set_page_config(page_title="จัดการเมนู", page_icon="🍜", layout="wide")
 
 def main():
-    st.title("🍜 จัดการเมนู")
+    # Check authentication and redirect to login if not authenticated
+    from utils.auth import require_auth
+    require_auth()
     
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
-        return
+    st.title("🍜 จัดการเมนู")
     
     # Tabs
     tab1, tab2 = st.tabs(["📋 รายการเมนู", "➕ เพิ่มเมนู"])

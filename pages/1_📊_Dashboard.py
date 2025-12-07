@@ -22,12 +22,11 @@ import time
 st.set_page_config(page_title="Dashboard", page_icon="📊", layout="wide")
 
 def main():
-    st.title("📊 Dashboard - ภาพรวมระบบ")
+    # Check authentication and redirect to login if not authenticated
+    from utils.auth import require_auth
+    require_auth()
     
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
-        return
+    st.title("📊 Dashboard - ภาพรวมระบบ")
     
     # Notifications
     notifications = get_all_notifications()

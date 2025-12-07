@@ -101,3 +101,5 @@
 - ควรพิจารณาใช้ Redis สำหรับ caching และ session management
 - ควรเพิ่ม CI/CD pipeline สำหรับ deployment
 
+
+

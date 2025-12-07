@@ -36,3 +36,5 @@ def migrate_add_barcode():
 if __name__ == "__main__":
     migrate_add_barcode()
 
+
+

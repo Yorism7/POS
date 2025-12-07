@@ -120,12 +120,11 @@ def export_to_excel(df: pd.DataFrame, filename: str):
     return output.getvalue()
 
 def main():
-    st.title("📈 รายงาน")
+    # Check authentication and redirect to login if not authenticated
+    from utils.auth import require_auth
+    require_auth()
     
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
-        return
+    st.title("📈 รายงาน")
     
     # Date range selector
     col1, col2, col3 = st.columns([1, 1, 2])

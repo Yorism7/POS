@@ -57,12 +57,11 @@ def void_sale(sale_id: int, reason: str, user_id: int):
         session.close()
 
 def main():
-    st.title("🔄 ยกเลิกการขาย (Void Sale)")
+    # Check authentication and redirect to login if not authenticated
+    from utils.auth import require_auth, require_role
+    require_auth()
     
-    # Check authentication
-    if 'authenticated' not in st.session_state or not st.session_state.authenticated:
-        st.warning("⚠️ กรุณาเข้าสู่ระบบก่อน")
-        return
+    st.title("🔄 ยกเลิกการขาย (Void Sale)")
     
     # Check if admin
     if st.session_state.role != 'admin':

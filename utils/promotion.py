@@ -176,3 +176,5 @@ def use_promotion(promotion_id: int, sale_id: int, customer_id: int = None,
     finally:
         session.close()
 
+
+
