@@ -3,6 +3,7 @@ POS Page - ระบบขายสินค้าและเมนู
 """
 
 import streamlit as st
+import os
 from datetime import datetime
 from database.db import get_session
 from database.models import Product, Menu, Sale, SaleItem, Customer
@@ -231,6 +232,20 @@ def main():
                     for idx, product in enumerate(products):
                         with cols[idx % 3]:
                             with st.container():
+                                # Display product image if available
+                                if product.image_path:
+                                    try:
+                                        # Check if it's a URL or file path
+                                        if product.image_path.startswith(('http://', 'https://')):
+                                            st.image(product.image_path, caption=product.name, width='stretch', use_container_width=True)
+                                        else:
+                                            # Try to load as file path
+                                            if os.path.exists(product.image_path):
+                                                st.image(product.image_path, caption=product.name, width='stretch', use_container_width=True)
+                                    except Exception as e:
+                                        st.caption("🖼️ ไม่สามารถแสดงรูปภาพได้")
+                                        print(f"[DEBUG] Error loading product image: {e} - {datetime.now()}")
+                                
                                 st.write(f"**{product.name}**")
                                 st.caption(f"สต็อค: {product.stock_quantity:.2f} {product.unit}")
                                 st.write(f"ราคา: {format_currency(product.selling_price)}")
@@ -272,6 +287,20 @@ def main():
                     for idx, menu in enumerate(menus):
                         with cols[idx % 3]:
                             with st.container():
+                                # Display menu image if available
+                                if menu.image_path:
+                                    try:
+                                        # Check if it's a URL or file path
+                                        if menu.image_path.startswith(('http://', 'https://')):
+                                            st.image(menu.image_path, caption=menu.name, width='stretch', use_container_width=True)
+                                        else:
+                                            # Try to load as file path
+                                            if os.path.exists(menu.image_path):
+                                                st.image(menu.image_path, caption=menu.name, width='stretch', use_container_width=True)
+                                    except Exception as e:
+                                        st.caption("🖼️ ไม่สามารถแสดงรูปภาพได้")
+                                        print(f"[DEBUG] Error loading menu image: {e} - {datetime.now()}")
+                                
                                 st.write(f"**{menu.name}**")
                                 if menu.description:
                                     st.caption(menu.description)

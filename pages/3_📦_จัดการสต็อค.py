@@ -3,11 +3,13 @@ Inventory Management Page - จัดการสต็อค
 """
 
 import streamlit as st
+import os
 from datetime import datetime
 from database.db import get_session
 from database.models import Product, Category, StockTransaction
 from utils.helpers import format_currency, format_date
 from utils.pagination import paginate_items
+from utils.image_upload import image_uploader_widget, delete_image
 import pandas as pd
 
 st.set_page_config(page_title="จัดการสต็อค", page_icon="📦", layout="wide")
@@ -85,6 +87,20 @@ def main():
                 # Display products
                 for product in paginated_products:
                     with st.expander(f"📦 {product.name} - สต็อค: {product.stock_quantity:.2f} {product.unit}"):
+                        # Display product image if available
+                        if product.image_path:
+                            try:
+                                # Check if it's a URL or file path
+                                if product.image_path.startswith(('http://', 'https://')):
+                                    st.image(product.image_path, caption=product.name, width=200, use_container_width=False)
+                                else:
+                                    # Try to load as file path
+                                    if os.path.exists(product.image_path):
+                                        st.image(product.image_path, caption=product.name, width=200, use_container_width=False)
+                            except Exception as e:
+                                st.caption("🖼️ ไม่สามารถแสดงรูปภาพได้")
+                                print(f"[DEBUG] Error loading product image: {e}")
+                        
                         col1, col2, col3 = st.columns(3)
                         
                         with col1:
@@ -151,6 +167,53 @@ def main():
                                     new_selling = st.number_input("ราคาขาย", min_value=0.0, value=float(product.selling_price), key=f"selling_{product.id}")
                                     new_stock = st.number_input("สต็อค", min_value=0.0, value=float(product.stock_quantity), key=f"stock_{product.id}")
                                     new_min_stock = st.number_input("ขั้นต่ำ", min_value=0.0, value=float(product.min_stock), key=f"min_{product.id}")
+                                
+                                # รูปภาพสินค้า
+                                st.divider()
+                                st.write("**🖼️ รูปภาพสินค้า**")
+                                
+                                # แสดงรูปภาพปัจจุบัน
+                                if product.image_path:
+                                    col_img_curr, col_img_new = st.columns([1, 1])
+                                    with col_img_curr:
+                                        st.write("**รูปภาพปัจจุบัน:**")
+                                        try:
+                                            if product.image_path.startswith(('http://', 'https://')):
+                                                st.image(product.image_path, width=150)
+                                            elif os.path.exists(product.image_path):
+                                                st.image(product.image_path, width=150)
+                                        except:
+                                            st.caption("ไม่สามารถแสดงรูปภาพได้")
+                                
+                                col_img1, col_img2 = st.columns([2, 1])
+                                with col_img1:
+                                    uploaded_image_path = image_uploader_widget(
+                                        "อัพโหลดรูปภาพใหม่",
+                                        key=f"product_image_upload_{product.id}",
+                                        image_type="product",
+                                        help_text="รองรับไฟล์: JPG, PNG, WebP"
+                                    )
+                                with col_img2:
+                                    image_url = st.text_input(
+                                        "หรือใส่ URL รูปภาพ",
+                                        value=product.image_path if product.image_path and product.image_path.startswith(('http://', 'https://')) else "",
+                                        placeholder="https://example.com/image.jpg",
+                                        key=f"product_image_url_{product.id}"
+                                    )
+                                
+                                # กำหนด image_path
+                                new_image_path = product.image_path  # ค่าเดิม
+                                if uploaded_image_path:
+                                    # ลบรูปภาพเก่าถ้ามี (ถ้าเป็นไฟล์ในเครื่อง)
+                                    if product.image_path and not product.image_path.startswith(('http://', 'https://')):
+                                        from utils.image_upload import delete_image
+                                        delete_image(product.image_path)
+                                    new_image_path = uploaded_image_path
+                                elif image_url and image_url.strip():
+                                    # ลบรูปภาพเก่าถ้ามี (ถ้าเป็นไฟล์ในเครื่อง)
+                                    if product.image_path and not product.image_path.startswith(('http://', 'https://')):
+                                        delete_image(product.image_path)
+                                    new_image_path = image_url.strip()
                                 
                                 col_save, col_cancel = st.columns(2)
                                 with col_save:
@@ -252,6 +315,33 @@ def main():
                     stock_quantity = st.number_input("จำนวนสต็อค *", min_value=0.0, value=0.0)
                     min_stock = st.number_input("จำนวนขั้นต่ำ *", min_value=0.0, value=0.0)
                 
+                # รูปภาพสินค้า
+                st.divider()
+                st.write("**🖼️ รูปภาพสินค้า**")
+                col_img1, col_img2 = st.columns([2, 1])
+                with col_img1:
+                    uploaded_image_path = image_uploader_widget(
+                        "อัพโหลดรูปภาพสินค้า",
+                        key="product_image_upload",
+                        image_type="product",
+                        help_text="รองรับไฟล์: JPG, PNG, WebP (ขนาดแนะนำ: ไม่เกิน 800x800px)"
+                    )
+                with col_img2:
+                    image_url = st.text_input(
+                        "หรือใส่ URL รูปภาพ",
+                        placeholder="https://example.com/image.jpg",
+                        key="product_image_url"
+                    )
+                    if image_url:
+                        st.caption("💡 ใช้ URL แทนการอัพโหลด")
+                
+                # กำหนด image_path
+                image_path = None
+                if uploaded_image_path:
+                    image_path = uploaded_image_path
+                elif image_url and image_url.strip():
+                    image_path = image_url.strip()
+                
                 if st.form_submit_button("➕ เพิ่มสินค้า", type="primary", width='stretch'):
                     if name and unit:
                         with st.spinner("⏳ กำลังเพิ่มสินค้า..."):
@@ -266,11 +356,12 @@ def main():
                                             name=name,
                                             category_id=category_id,
                                             unit=unit,
-                                            barcode=barcode.strip() if barcode else None,
+                                            barcode=barcode.strip(),
                                             cost_price=cost_price,
                                             selling_price=selling_price,
                                             stock_quantity=stock_quantity,
-                                            min_stock=min_stock
+                                            min_stock=min_stock,
+                                            image_path=image_path
                                         )
                                         session.add(product)
                                         session.commit()
@@ -288,7 +379,8 @@ def main():
                                         cost_price=cost_price,
                                         selling_price=selling_price,
                                         stock_quantity=stock_quantity,
-                                        min_stock=min_stock
+                                        min_stock=min_stock,
+                                        image_path=image_path
                                     )
                                     session.add(product)
                                     session.commit()

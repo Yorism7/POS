@@ -3,11 +3,13 @@ Menu Management Page - จัดการเมนูอาหาร
 """
 
 import streamlit as st
+import os
 from datetime import datetime
 from database.db import get_session
 from database.models import Menu, MenuItem, Product
 from utils.helpers import format_currency, calculate_menu_cost
 from utils.pagination import paginate_items
+from utils.image_upload import image_uploader_widget, delete_image
 
 st.set_page_config(page_title="จัดการเมนู", page_icon="🍜", layout="wide")
 
@@ -81,6 +83,20 @@ def main():
                     
                     status_icon = "🟢" if menu.is_active else "🔴"
                     with st.expander(f"{status_icon} {menu.name} - {format_currency(menu.price)}"):
+                        # Display menu image if available
+                        if menu.image_path:
+                            try:
+                                # Check if it's a URL or file path
+                                if menu.image_path.startswith(('http://', 'https://')):
+                                    st.image(menu.image_path, caption=menu.name, width=200, use_container_width=False)
+                                else:
+                                    # Try to load as file path
+                                    if os.path.exists(menu.image_path):
+                                        st.image(menu.image_path, caption=menu.name, width=200, use_container_width=False)
+                            except Exception as e:
+                                st.caption("🖼️ ไม่สามารถแสดงรูปภาพได้")
+                                print(f"[DEBUG] Error loading menu image: {e}")
+                        
                         col1, col2, col3 = st.columns(3)
                         
                         with col1:
@@ -156,7 +172,55 @@ def main():
                                 with col2:
                                     new_active = st.checkbox("เปิดขาย", value=menu.is_active, key=f"menu_active_{menu.id}")
                                 
+                                # รูปภาพเมนู
+                                st.divider()
+                                st.write("**🖼️ รูปภาพเมนู**")
+                                
+                                # แสดงรูปภาพปัจจุบัน
+                                if menu.image_path:
+                                    col_img_curr, col_img_new = st.columns([1, 1])
+                                    with col_img_curr:
+                                        st.write("**รูปภาพปัจจุบัน:**")
+                                        try:
+                                            if menu.image_path.startswith(('http://', 'https://')):
+                                                st.image(menu.image_path, width=150)
+                                            elif os.path.exists(menu.image_path):
+                                                st.image(menu.image_path, width=150)
+                                        except:
+                                            st.caption("ไม่สามารถแสดงรูปภาพได้")
+                                
+                                col_img1, col_img2 = st.columns([2, 1])
+                                with col_img1:
+                                    uploaded_image_path = image_uploader_widget(
+                                        "อัพโหลดรูปภาพใหม่",
+                                        key=f"menu_image_upload_{menu.id}",
+                                        image_type="menu",
+                                        help_text="รองรับไฟล์: JPG, PNG, WebP"
+                                    )
+                                with col_img2:
+                                    image_url = st.text_input(
+                                        "หรือใส่ URL รูปภาพ",
+                                        value=menu.image_path if menu.image_path and menu.image_path.startswith(('http://', 'https://')) else "",
+                                        placeholder="https://example.com/image.jpg",
+                                        key=f"menu_image_url_{menu.id}"
+                                    )
+                                
+                                # กำหนด image_path
+                                new_image_path = menu.image_path  # ค่าเดิม
+                                if uploaded_image_path:
+                                    # ลบรูปภาพเก่าถ้ามี (ถ้าเป็นไฟล์ในเครื่อง)
+                                    if menu.image_path and not menu.image_path.startswith(('http://', 'https://')):
+                                        from utils.image_upload import delete_image
+                                        delete_image(menu.image_path)
+                                    new_image_path = uploaded_image_path
+                                elif image_url and image_url.strip():
+                                    # ลบรูปภาพเก่าถ้ามี (ถ้าเป็นไฟล์ในเครื่อง)
+                                    if menu.image_path and not menu.image_path.startswith(('http://', 'https://')):
+                                        delete_image(menu.image_path)
+                                    new_image_path = image_url.strip()
+                                
                                 # Edit BOM
+                                st.divider()
                                 st.write("**แก้ไขวัตถุดิบ:**")
                                 products = session.query(Product).order_by(Product.name).all()
                                 
@@ -228,6 +292,7 @@ def main():
                                             menu.description = new_description
                                             menu.price = new_price
                                             menu.is_active = new_active
+                                            menu.image_path = new_image_path
                                             menu.updated_at = datetime.now()
                                             
                                             # Update BOM quantities
@@ -265,6 +330,33 @@ def main():
                     price = st.number_input("ราคาขาย *", min_value=0.0, value=0.0)
                 with col2:
                     is_active = st.checkbox("เปิดขาย", value=True)
+                
+                # รูปภาพเมนู
+                st.divider()
+                st.write("**🖼️ รูปภาพเมนู**")
+                col_img1, col_img2 = st.columns([2, 1])
+                with col_img1:
+                    uploaded_image_path = image_uploader_widget(
+                        "อัพโหลดรูปภาพเมนู",
+                        key="menu_image_upload",
+                        image_type="menu",
+                        help_text="รองรับไฟล์: JPG, PNG, WebP (ขนาดแนะนำ: ไม่เกิน 800x800px)"
+                    )
+                with col_img2:
+                    image_url = st.text_input(
+                        "หรือใส่ URL รูปภาพ",
+                        placeholder="https://example.com/image.jpg",
+                        key="menu_image_url"
+                    )
+                    if image_url:
+                        st.caption("💡 ใช้ URL แทนการอัพโหลด")
+                
+                # กำหนด image_path
+                image_path = None
+                if uploaded_image_path:
+                    image_path = uploaded_image_path
+                elif image_url and image_url.strip():
+                    image_path = image_url.strip()
                 
                 st.divider()
                 st.write("**วัตถุดิบ (BOM):**")
@@ -348,6 +440,7 @@ def main():
                             try:
                                 # Create menu
                                 menu = Menu(
+                                    image_path=image_path,
                                     name=name,
                                     description=description,
                                     price=price,

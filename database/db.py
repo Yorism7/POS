@@ -11,7 +11,8 @@ from database.models import (
     Base, User, Category, Product, Menu, MenuItem, StockTransaction, 
     Sale, SaleItem, Customer, Membership, LoyaltyTransaction, Coupon, CouponUsage,
     EmployeeShift, Attendance, Expense, ExpenseCategory, Promotion, PromotionRule, PromotionUsage,
-    Branch, StockTransfer, Supplier, PurchaseOrder, PurchaseOrderItem, Batch, StoreSetting, SavedLogin
+    Branch, StockTransfer, Supplier, PurchaseOrder, PurchaseOrderItem, Batch, StoreSetting, SavedLogin,
+    Table, CustomerOrder, OrderItem, KitchenQueue
 )
 import bcrypt
 
@@ -247,9 +248,9 @@ def get_session() -> Session:
 def init_db():
     """Initialize database - create all tables"""
     # Import models to ensure they're registered with Base
-    from database.models import StoreSetting, SavedLogin
+    from database.models import StoreSetting, SavedLogin, Table, CustomerOrder, OrderItem, KitchenQueue
     
-    # Create all tables including new ones (StoreSetting, SavedLogin)
+    # Create all tables including new ones
     print("[INFO] Creating all database tables...")
     try:
         Base.metadata.create_all(bind=engine)
@@ -266,6 +267,14 @@ def init_db():
         print("[INFO] ✅ store_settings table verified")
         SavedLogin.__table__.create(bind=engine, checkfirst=True)
         print("[INFO] ✅ saved_logins table verified")
+        Table.__table__.create(bind=engine, checkfirst=True)
+        print("[INFO] ✅ tables table verified")
+        CustomerOrder.__table__.create(bind=engine, checkfirst=True)
+        print("[INFO] ✅ customer_orders table verified")
+        OrderItem.__table__.create(bind=engine, checkfirst=True)
+        print("[INFO] ✅ order_items table verified")
+        KitchenQueue.__table__.create(bind=engine, checkfirst=True)
+        print("[INFO] ✅ kitchen_queue table verified")
     except Exception as e:
         print(f"[WARNING] Error verifying tables: {e}")
         import traceback

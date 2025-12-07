@@ -577,6 +577,102 @@ class PromotionUsage(Base):
     # Relationships
     promotion = relationship("Promotion", back_populates="usages")
     sale = relationship("Sale", back_populates="promotion_usages")
+
+class Table(Base):
+    """Table model - โต๊ะในร้าน"""
+    __tablename__ = 'tables'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    table_number = Column(String(20), nullable=False, unique=True, index=True)  # หมายเลขโต๊ะ เช่น "T1", "T2"
+    name = Column(String(100), nullable=True)  # ชื่อโต๊ะ (ถ้ามี)
+    capacity = Column(Integer, nullable=False, default=4)  # จำนวนที่นั่ง
+    qr_code = Column(String(500), nullable=True)  # QR Code URL สำหรับโต๊ะนี้
+    is_active = Column(Boolean, default=True, nullable=False)  # เปิดใช้งานหรือไม่
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # Relationships
+    orders = relationship("CustomerOrder", back_populates="table")
+
+class OrderStatus(enum.Enum):
+    """Order status enum"""
+    PENDING = "pending"  # รอการยืนยัน
+    CONFIRMED = "confirmed"  # ยืนยันแล้ว
+    PREPARING = "preparing"  # กำลังทำ
+    READY = "ready"  # พร้อมเสิร์ฟ
+    SERVED = "served"  # เสิร์ฟแล้ว
+    COMPLETED = "completed"  # เสร็จสิ้น
+    CANCELLED = "cancelled"  # ยกเลิก
+
+class CustomerOrder(Base):
+    """CustomerOrder model - ออเดอร์จากลูกค้า"""
+    __tablename__ = 'customer_orders'
+    __table_args__ = (
+        Index('idx_order_table', 'table_id'),
+        Index('idx_order_status', 'status'),
+        Index('idx_order_created', 'created_at'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    order_number = Column(String(50), nullable=False, unique=True, index=True)  # เลขที่ออเดอร์ เช่น "ORD-20250107-001"
+    table_id = Column(Integer, ForeignKey('tables.id'), nullable=True)  # โต๊ะ
+    customer_name = Column(String(200), nullable=True)  # ชื่อลูกค้า (ถ้าไม่ระบุ = ลูกค้าทั่วไป)
+    customer_phone = Column(String(20), nullable=True)  # เบอร์โทรลูกค้า
+    status = Column(String(20), nullable=False, default='pending', index=True)  # pending, confirmed, preparing, ready, served, completed, cancelled
+    total_amount = Column(Float, nullable=False, default=0.0)  # ยอดรวม
+    notes = Column(Text, nullable=True)  # หมายเหตุพิเศษ
+    created_at = Column(DateTime, default=datetime.now, index=True)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    confirmed_at = Column(DateTime, nullable=True)  # วันที่ยืนยันออเดอร์
+    completed_at = Column(DateTime, nullable=True)  # วันที่เสร็จสิ้น
+    
+    # Relationships
+    table = relationship("Table", back_populates="orders")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    queue_items = relationship("KitchenQueue", back_populates="order", cascade="all, delete-orphan")
+
+class OrderItem(Base):
+    """OrderItem model - รายการในออเดอร์"""
+    __tablename__ = 'order_items'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey('customer_orders.id'), nullable=False, index=True)
+    menu_id = Column(Integer, ForeignKey('menus.id'), nullable=False)
+    quantity = Column(Integer, nullable=False, default=1)
+    unit_price = Column(Float, nullable=False)  # ราคาต่อหน่วย (เก็บไว้เพื่อป้องกันการเปลี่ยนแปลงราคา)
+    subtotal = Column(Float, nullable=False)  # ราคารวม (quantity * unit_price)
+    special_instructions = Column(Text, nullable=True)  # หมายเหตุพิเศษ เช่น "ไม่เผ็ด", "ไม่ใส่ผัก"
+    created_at = Column(DateTime, default=datetime.now)
+    
+    # Relationships
+    order = relationship("CustomerOrder", back_populates="items")
+    menu = relationship("Menu")
+
+class KitchenQueue(Base):
+    """KitchenQueue model - คิวทำอาหาร"""
+    __tablename__ = 'kitchen_queue'
+    __table_args__ = (
+        Index('idx_queue_status', 'status'),
+        Index('idx_queue_priority', 'priority'),
+        Index('idx_queue_created', 'created_at'),
+    )
+    
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey('customer_orders.id'), nullable=False, index=True)
+    menu_id = Column(Integer, ForeignKey('menus.id'), nullable=False)
+    quantity = Column(Integer, nullable=False, default=1)
+    status = Column(String(20), nullable=False, default='pending', index=True)  # pending, preparing, ready, completed
+    priority = Column(Integer, nullable=False, default=0)  # ความสำคัญ (สูงกว่า = สำคัญกว่า)
+    started_at = Column(DateTime, nullable=True)  # เริ่มทำเมื่อไหร่
+    completed_at = Column(DateTime, nullable=True)  # เสร็จเมื่อไหร่
+    prepared_by = Column(Integer, ForeignKey('users.id'), nullable=True)  # ใครเป็นคนทำ
+    notes = Column(Text, nullable=True)  # หมายเหตุ
+    created_at = Column(DateTime, default=datetime.now, index=True)
+    
+    # Relationships
+    order = relationship("CustomerOrder", back_populates="queue_items")
+    menu = relationship("Menu")
+    preparer = relationship("User")
     customer = relationship("Customer")
 
 

@@ -1,7 +1,15 @@
 """
-Real-time Barcode Scanner Component using JavaScript (jsQR)
-สแกนบาร์โค๊ดทันทีแบบ real-time - ไม่ต้องถ่ายภาพ!
+Real-time Barcode Scanner Component using JavaScript (QuaggaJS)
+สแกนบาร์โค๊ดทันทีแบบ real-time - รองรับบาร์โค๊ดทุกประเภท!
 Works on Streamlit Cloud - No system dependencies needed!
+
+รองรับบาร์โค๊ด:
+- QR Code
+- EAN-13 (บาร์โค๊ดสินค้าทั่วไป)
+- Code 128
+- UPC-A
+- Code 39
+- และอื่นๆ
 """
 
 import streamlit as st
@@ -10,14 +18,15 @@ import urllib.parse
 
 def barcode_scanner_realtime():
     """
-    Real-time barcode scanner using JavaScript (jsQR)
-    สแกนบาร์โค๊ดทันทีแบบ real-time - ไม่ต้องถ่ายภาพ!
+    Real-time barcode scanner using JavaScript (QuaggaJS)
+    สแกนบาร์โค๊ดทันทีแบบ real-time - รองรับบาร์โค๊ดทุกประเภท!
     
     Returns:
         str: Barcode value if scanned, None otherwise
     """
     st.markdown("### 📷 สแกนบาร์โค๊ดแบบ Real-time")
     st.info("💡 **วิธีใช้งาน:** กดปุ่ม 'เริ่มสแกน' แล้วชี้กล้องไปที่บาร์โค๊ด ระบบจะสแกนทันที!")
+    st.success("✅ **รองรับบาร์โค๊ด:** QR Code, EAN-13, Code 128, UPC-A, Code 39 และอื่นๆ")
     
     # Check if barcode was scanned (from URL parameter)
     # Use new st.query_params API (Streamlit 1.28+)
@@ -58,27 +67,40 @@ def barcode_scanner_realtime():
         del st.session_state['scanned_barcode']
         return barcode
     
-    # JavaScript-based real-time barcode scanner
+    # JavaScript-based real-time barcode scanner using QuaggaJS
     html_code = """
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <title>Real-time Barcode Scanner</title>
+        <!-- QuaggaJS - รองรับบาร์โค๊ด 1D (EAN-13, Code 128, UPC-A, Code 39, etc.) -->
+        <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+        <!-- jsQR - รองรับ QR Code (2D) -->
         <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
         <script>
-            // Check if jsQR loaded successfully
+            // Check if libraries loaded successfully
             window.addEventListener('load', function() {
                 setTimeout(function() {
+                    let allLoaded = true;
+                    if (typeof Quagga === 'undefined') {
+                        console.error('❌ QuaggaJS library failed to load!');
+                        allLoaded = false;
+                    } else {
+                        console.log('✅ QuaggaJS library loaded successfully');
+                    }
                     if (typeof jsQR === 'undefined') {
                         console.error('❌ jsQR library failed to load!');
-                        const statusDiv = document.getElementById('status');
-                        if (statusDiv) {
-                            statusDiv.textContent = '❌ ไม่สามารถโหลด jsQR library ได้ กรุณารีเฟรชหน้าเว็บ';
-                            statusDiv.className = 'status-error';
-                        }
+                        allLoaded = false;
                     } else {
                         console.log('✅ jsQR library loaded successfully');
+                    }
+                    if (!allLoaded) {
+                        const statusDiv = document.getElementById('status');
+                        if (statusDiv) {
+                            statusDiv.textContent = '❌ ไม่สามารถโหลด library ได้ กรุณารีเฟรชหน้าเว็บ';
+                            statusDiv.className = 'status-error';
+                        }
                     }
                 }, 1500);
             });
@@ -109,17 +131,16 @@ def barcode_scanner_realtime():
                 margin-bottom: 20px;
                 font-size: 24px;
             }
-            #video {
+            #interactive {
                 width: 100%;
                 max-width: 640px;
+                height: 480px;
                 border: 3px solid #667eea;
                 border-radius: 12px;
                 background: #000;
                 display: block;
                 margin: 0 auto;
-            }
-            #canvas {
-                display: none;
+                position: relative;
             }
             .controls {
                 margin: 20px 0;
@@ -181,213 +202,383 @@ def barcode_scanner_realtime():
                 0%, 100% { transform: scale(1); }
                 50% { transform: scale(1.05); }
             }
-            .scanner-overlay {
-                position: relative;
-                display: inline-block;
-            }
-            .scanner-frame {
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                width: 80%;
-                height: 200px;
-                border: 3px solid #4caf50;
-                border-radius: 8px;
-                pointer-events: none;
-                box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-            }
-            .scanner-frame::before {
-                content: '';
-                position: absolute;
-                top: -3px;
-                left: -3px;
-                right: -3px;
-                bottom: -3px;
-                border: 2px solid #4caf50;
-                border-radius: 8px;
-                animation: scanline 2s linear infinite;
-            }
-            @keyframes scanline {
-                0% { transform: translateY(-100%); }
-                100% { transform: translateY(100%); }
+            .barcode-type {
+                margin-top: 10px;
+                padding: 8px;
+                background: #f5f5f5;
+                border-radius: 6px;
+                font-size: 14px;
+                color: #666;
             }
         </style>
     </head>
     <body>
         <div class="scanner-container">
             <h3>📷 สแกนบาร์โค๊ดแบบ Real-time</h3>
-            <div class="scanner-overlay">
-                <video id="video" autoplay playsinline></video>
-                <div class="scanner-frame" id="scannerFrame" style="display: none;"></div>
-            </div>
-            <canvas id="canvas"></canvas>
+            <div id="interactive"></div>
             <div class="controls">
                 <button id="startBtn" onclick="startScanner()">📷 เริ่มสแกน</button>
                 <button id="stopBtn" onclick="stopScanner()" disabled>⏹️ หยุดสแกน</button>
             </div>
             <div id="status" class="status-info">กดปุ่ม "เริ่มสแกน" เพื่อเปิดกล้องและเริ่มสแกน</div>
+            <div id="barcodeType" class="barcode-type" style="display: none;"></div>
         </div>
 
         <script>
+            let scanning = false;
+            let lastScannedCode = null;
+            let scanCount = 0;
             let video = null;
             let canvas = null;
             let ctx = null;
-            let scanning = false;
-            let stream = null;
-            let scanFrame = null;
-
+            let qrScanning = false;
+            
+            // รองรับบาร์โค๊ด 1D หลายประเภท (QuaggaJS)
+            const readers = [
+                'code_128_reader',
+                'ean_reader',
+                'ean_8_reader',
+                'code_39_reader',
+                'code_39_vin_reader',
+                'codabar_reader',
+                'upc_reader',
+                'upc_e_reader',
+                'i2of5_reader'
+            ];
+            
+            // ตั้งค่า canvas สำหรับ jsQR (QR Code)
             window.addEventListener('load', function() {
-                video = document.getElementById('video');
-                canvas = document.getElementById('canvas');
-                // Use willReadFrequently for better performance when reading image data frequently
+                canvas = document.createElement('canvas');
                 ctx = canvas.getContext('2d', { willReadFrequently: true });
-                scanFrame = document.getElementById('scannerFrame');
             });
-
+            
             function startScanner() {
                 if (scanning) return;
-
-                // Request camera access
-                navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment', // Use back camera on mobile
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                })
-                .then(function(mediaStream) {
-                    stream = mediaStream;
-                    video.srcObject = stream;
-                    video.setAttribute('playsinline', true);
-                    video.play();
+                
+                if (typeof Quagga === 'undefined') {
+                    updateStatus('❌ QuaggaJS library ยังไม่โหลดเสร็จ กรุณารอสักครู่...', 'error');
+                    return;
+                }
+                
+                // ตั้งค่า QuaggaJS
+                Quagga.init({
+                    inputStream: {
+                        name: "Live",
+                        type: "LiveStream",
+                        target: document.querySelector('#interactive'),
+                        constraints: {
+                            width: 640,
+                            height: 480,
+                            facingMode: "environment" // ใช้กล้องหลังบนมือถือ
+                        }
+                    },
+                    locator: {
+                        patchSize: "medium",
+                        halfSample: true
+                    },
+                    numOfWorkers: 2,
+                    frequency: 10, // สแกนทุก 10 frames
+                    decoder: {
+                        readers: readers
+                    },
+                    locate: true
+                }, function(err) {
+                    if (err) {
+                        console.error('QuaggaJS initialization error:', err);
+                        let errorMsg = 'ไม่สามารถเริ่มต้นสแกนเนอร์ได้';
+                        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                            errorMsg = 'กรุณาอนุญาตให้เข้าถึงกล้อง';
+                        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                            errorMsg = 'ไม่พบกล้องในอุปกรณ์นี้';
+                        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                            errorMsg = 'กล้องถูกใช้งานโดยแอปอื่นอยู่';
+                        }
+                        updateStatus('❌ ' + errorMsg, 'error');
+                        return;
+                    }
                     
+                    console.log('✅ QuaggaJS initialized successfully');
                     scanning = true;
                     document.getElementById('startBtn').disabled = true;
                     document.getElementById('stopBtn').disabled = false;
-                    scanFrame.style.display = 'block';
-                    
                     updateStatus('🔍 กำลังสแกน... ชี้กล้องไปที่บาร์โค๊ด', 'info');
                     
-                    // Start scanning loop
-                    scanBarcode();
-                })
-                .catch(function(err) {
-                    console.error('Error accessing camera:', err);
-                    let errorMsg = 'ไม่สามารถเข้าถึงกล้องได้';
-                    if (err.name === 'NotAllowedError') {
-                        errorMsg = 'กรุณาอนุญาตให้เข้าถึงกล้อง';
-                    } else if (err.name === 'NotFoundError') {
-                        errorMsg = 'ไม่พบกล้องในอุปกรณ์นี้';
+                    // เริ่มสแกน
+                    Quagga.start();
+                    
+                    // เริ่มสแกน QR Code ด้วย jsQR (ทำงานควบคู่กับ QuaggaJS)
+                    startQRCodeScanning();
+                });
+                
+                // ฟังก์ชันเมื่อพบบาร์โค๊ด 1D (QuaggaJS)
+                Quagga.onDetected(function(result) {
+                    if (!scanning) return;
+                    
+                    const code = result.codeResult.code;
+                    const format = result.codeResult.format || 'unknown';
+                    
+                    // ป้องกันการสแกนซ้ำ (debounce)
+                    if (lastScannedCode === code) {
+                        return;
                     }
-                    updateStatus('❌ ' + errorMsg, 'error');
+                    
+                    lastScannedCode = code;
+                    scanCount++;
+                    
+                    console.log('✅ Barcode detected:', code, 'Type:', format);
+                    console.log('📍 Scan count:', scanCount);
+                    
+                    // แสดงผลลัพธ์
+                    const formatNames = {
+                        'code_128': 'Code 128',
+                        'ean_13': 'EAN-13',
+                        'ean_8': 'EAN-8',
+                        'code_39': 'Code 39',
+                        'codabar': 'Codabar',
+                        'upc': 'UPC-A',
+                        'upc_e': 'UPC-E',
+                        'i2of5': 'Interleaved 2 of 5',
+                        'qr_code': 'QR Code'
+                    };
+                    
+                    const formatName = formatNames[format] || format;
+                    handleBarcodeDetected(code, formatName);
                 });
             }
-
-            function stopScanner() {
-                scanning = false;
+            
+            // ฟังก์ชันสแกน QR Code ด้วย jsQR
+            function startQRCodeScanning() {
+                if (!scanning || qrScanning) return;
+                qrScanning = true;
                 
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                    stream = null;
-                }
-                
-                if (video) {
-                    video.srcObject = null;
-                }
-                
-                scanFrame.style.display = 'none';
-                document.getElementById('startBtn').disabled = false;
-                document.getElementById('stopBtn').disabled = true;
-                updateStatus('หยุดสแกนแล้ว', 'info');
-            }
-
-            function scanBarcode() {
-                if (!scanning) return;
-
-                if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                    canvas.height = video.videoHeight;
-                    canvas.width = video.videoWidth;
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                function scanQRCode() {
+                    if (!scanning) {
+                        qrScanning = false;
+                        return;
+                    }
                     
+                    // หา video element จาก QuaggaJS
+                    const quaggaVideo = document.querySelector('#interactive video');
+                    if (!quaggaVideo || quaggaVideo.readyState !== quaggaVideo.HAVE_ENOUGH_DATA) {
+                        requestAnimationFrame(scanQRCode);
+                        return;
+                    }
+                    
+                    // ตั้งค่า canvas
+                    if (canvas.width !== quaggaVideo.videoWidth || canvas.height !== quaggaVideo.videoHeight) {
+                        canvas.width = quaggaVideo.videoWidth;
+                        canvas.height = quaggaVideo.videoHeight;
+                    }
+                    
+                    // วาด video frame ลง canvas
+                    ctx.drawImage(quaggaVideo, 0, 0, canvas.width, canvas.height);
+                    
+                    // ดึง image data
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     
-                    // Use jsQR to decode barcode
+                    // สแกน QR Code ด้วย jsQR
                     if (typeof jsQR !== 'undefined') {
                         try {
-                            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                            let code = jsQR(imageData.data, imageData.width, imageData.height, {
                                 inversionAttempts: "dontInvert",
                             });
                             
+                            // ถ้าไม่พบ ลอง invert
+                            if (!code) {
+                                code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                    inversionAttempts: "attemptBoth",
+                                });
+                            }
+                            
                             if (code && code.data) {
-                                // Found barcode!
-                                const barcodeData = code.data.trim();
-                                
-                                // Validate barcode (should not be empty)
-                                if (barcodeData.length > 0) {
-                                    console.log('✅ Barcode found:', barcodeData);
-                                    updateStatus('✅ พบบาร์โค๊ด: ' + barcodeData, 'success');
-                                    
-                                    // Stop scanning immediately
-                                    stopScanner();
-                                    
-                                    // Send result to Streamlit via URL parameter
-                                    try {
-                                        // Get current URL
-                                        const currentUrl = window.location.href;
-                                        const url = new URL(currentUrl);
-                                        
-                                        // Remove existing barcode parameter if any
-                                        url.searchParams.delete('barcode');
-                                        
-                                        // Add new barcode parameter
-                                        url.searchParams.set('barcode', barcodeData);
-                                        
-                                        console.log('✅ Barcode scanned:', barcodeData);
-                                        console.log('Redirecting to:', url.toString());
-                                        
-                                        // Use window.location to navigate (preserves Streamlit routing)
-                                        // This is the safest method for Streamlit Cloud
-                                        window.location.href = url.toString();
-                                        
+                                const qrData = code.data.trim();
+                                if (qrData.length > 0) {
+                                    // ป้องกันการสแกนซ้ำ
+                                    if (lastScannedCode === qrData) {
+                                        requestAnimationFrame(scanQRCode);
                                         return;
-                                    } catch (e) {
-                                        console.error('Error sending barcode:', e);
-                                        updateStatus('❌ เกิดข้อผิดพลาดในการส่งข้อมูล: ' + e.message, 'error');
-                                        // Continue scanning if error
-                                        if (scanning) {
-                                            requestAnimationFrame(scanBarcode);
-                                        }
                                     }
-                                } else {
-                                    console.warn('⚠️ Barcode data is empty');
+                                    
+                                    lastScannedCode = qrData;
+                                    scanCount++;
+                                    
+                                    console.log('✅ QR Code detected:', qrData);
+                                    handleBarcodeDetected(qrData, 'QR Code');
+                                    return;
                                 }
                             }
                         } catch (e) {
-                            console.error('Error decoding barcode:', e);
-                        }
-                    } else {
-                        // jsQR not loaded - show error once
-                        if (scanning && !window.jsQRWarningShown) {
-                            console.error('❌ jsQR library not loaded!');
-                            updateStatus('⚠️ กำลังโหลด jsQR library... กรุณารอสักครู่', 'error');
-                            window.jsQRWarningShown = true;
+                            console.error('Error scanning QR Code:', e);
                         }
                     }
+                    
+                    // วนสแกนต่อ
+                    requestAnimationFrame(scanQRCode);
                 }
                 
-                // Continue scanning (real-time loop)
-                if (scanning) {
-                    requestAnimationFrame(scanBarcode);
+                // เริ่มสแกน QR Code
+                scanQRCode();
+            }
+            
+            // ฟังก์ชันจัดการเมื่อพบบาร์โค๊ด (ใช้ร่วมกันทั้ง 1D และ QR Code)
+            function handleBarcodeDetected(code, formatName) {
+                updateStatus('✅ พบบาร์โค๊ด: ' + code, 'success');
+                document.getElementById('barcodeType').textContent = 'ประเภท: ' + formatName;
+                document.getElementById('barcodeType').style.display = 'block';
+                
+                // หยุดสแกน
+                stopScanner();
+                
+                // ส่งผลลัพธ์กลับไปยัง Streamlit
+                try {
+                    const currentUrl = window.location.href;
+                    const url = new URL(currentUrl);
+                    
+                    // Remove existing barcode parameter if any
+                    url.searchParams.delete('barcode');
+                    
+                    // Add new barcode parameter
+                    url.searchParams.set('barcode', code);
+                    
+                    console.log('✅ Barcode scanned:', code, 'Type:', formatName);
+                    console.log('🔄 Redirecting to:', url.toString());
+                    
+                    // Use window.location to navigate (preserves Streamlit routing)
+                    window.location.href = url.toString();
+                } catch (e) {
+                    console.error('❌ Error sending barcode:', e);
+                    updateStatus('❌ เกิดข้อผิดพลาดในการส่งข้อมูล: ' + e.message, 'error');
                 }
             }
-
+            
+            // ฟังก์ชันสแกน QR Code ด้วย jsQR
+            function startQRCodeScanning() {
+                if (!scanning) return;
+                
+                function scanQRCode() {
+                    if (!scanning) return;
+                    
+                    // หา video element จาก QuaggaJS
+                    const quaggaVideo = document.querySelector('#interactive video');
+                    if (!quaggaVideo || quaggaVideo.readyState !== quaggaVideo.HAVE_ENOUGH_DATA) {
+                        requestAnimationFrame(scanQRCode);
+                        return;
+                    }
+                    
+                    // ตั้งค่า canvas
+                    if (canvas.width !== quaggaVideo.videoWidth || canvas.height !== quaggaVideo.videoHeight) {
+                        canvas.width = quaggaVideo.videoWidth;
+                        canvas.height = quaggaVideo.videoHeight;
+                    }
+                    
+                    // วาด video frame ลง canvas
+                    ctx.drawImage(quaggaVideo, 0, 0, canvas.width, canvas.height);
+                    
+                    // ดึง image data
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // สแกน QR Code ด้วย jsQR
+                    if (typeof jsQR !== 'undefined') {
+                        try {
+                            let code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: "dontInvert",
+                            });
+                            
+                            // ถ้าไม่พบ ลอง invert
+                            if (!code) {
+                                code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                    inversionAttempts: "attemptBoth",
+                                });
+                            }
+                            
+                            if (code && code.data) {
+                                const qrData = code.data.trim();
+                                if (qrData.length > 0) {
+                                    // ป้องกันการสแกนซ้ำ
+                                    if (lastScannedCode === qrData) {
+                                        requestAnimationFrame(scanQRCode);
+                                        return;
+                                    }
+                                    
+                                    lastScannedCode = qrData;
+                                    scanCount++;
+                                    
+                                    console.log('✅ QR Code detected:', qrData);
+                                    handleBarcodeDetected(qrData, 'QR Code');
+                                    return;
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error scanning QR Code:', e);
+                        }
+                    }
+                    
+                    // วนสแกนต่อ
+                    requestAnimationFrame(scanQRCode);
+                }
+                
+                // เริ่มสแกน QR Code
+                scanQRCode();
+            }
+            
+            // ฟังก์ชันจัดการเมื่อพบบาร์โค๊ด (ใช้ร่วมกันทั้ง 1D และ QR Code)
+            function handleBarcodeDetected(code, formatName) {
+                updateStatus('✅ พบบาร์โค๊ด: ' + code, 'success');
+                document.getElementById('barcodeType').textContent = 'ประเภท: ' + formatName;
+                document.getElementById('barcodeType').style.display = 'block';
+                
+                // หยุดสแกน
+                stopScanner();
+                
+                // ส่งผลลัพธ์กลับไปยัง Streamlit
+                try {
+                    const currentUrl = window.location.href;
+                    const url = new URL(currentUrl);
+                    
+                    // Remove existing barcode parameter if any
+                    url.searchParams.delete('barcode');
+                    
+                    // Add new barcode parameter
+                    url.searchParams.set('barcode', code);
+                    
+                    console.log('✅ Barcode scanned:', code, 'Type:', formatName);
+                    console.log('🔄 Redirecting to:', url.toString());
+                    
+                    // Use window.location to navigate (preserves Streamlit routing)
+                    window.location.href = url.toString();
+                } catch (e) {
+                    console.error('❌ Error sending barcode:', e);
+                    updateStatus('❌ เกิดข้อผิดพลาดในการส่งข้อมูล: ' + e.message, 'error');
+                }
+            }
+            
+            function stopScanner() {
+                if (!scanning) return;
+                
+                scanning = false;
+                qrScanning = false;
+                lastScannedCode = null;
+                
+                try {
+                    Quagga.stop();
+                } catch (e) {
+                    console.error('Error stopping Quagga:', e);
+                }
+                
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('barcodeType').style.display = 'none';
+                updateStatus('หยุดสแกนแล้ว', 'info');
+            }
+            
             function updateStatus(message, type) {
                 const statusDiv = document.getElementById('status');
-                statusDiv.textContent = message;
-                statusDiv.className = 'status-' + type;
+                if (statusDiv) {
+                    statusDiv.textContent = message;
+                    statusDiv.className = 'status-' + type;
+                }
             }
-
+            
             // Cleanup on page unload
             window.addEventListener('beforeunload', function() {
                 stopScanner();
@@ -398,52 +589,6 @@ def barcode_scanner_realtime():
     """
     
     # Create component
-    # Note: components.html() doesn't support 'key' parameter in some Streamlit versions
-    components.html(
-        html_code,
-        height=600
-    )
-    
-    # Check for scanned barcode from URL or session state
-    try:
-        if hasattr(st, 'query_params'):
-            query_params_raw = st.query_params
-            query_params = {}
-            for key, value in query_params_raw.items():
-                if isinstance(value, list):
-                    query_params[key] = value
-                else:
-                    query_params[key] = [value]
-        else:
-            query_params = st.experimental_get_query_params()
-    except:
-        query_params = {}
-    
-    # Check URL parameter first
-    if 'barcode' in query_params:
-        barcode = query_params['barcode'][0] if isinstance(query_params['barcode'], list) else query_params['barcode']
-        if barcode:
-            # Clear query params
-            try:
-                if hasattr(st, 'query_params'):
-                    # Create new dict without barcode
-                    new_params = dict(st.query_params)
-                    if 'barcode' in new_params:
-                        del new_params['barcode']
-                        st.query_params = new_params
-                else:
-                    st.experimental_set_query_params()
-            except Exception as e:
-                print(f"[DEBUG] Error clearing query params: {e}")
-            print(f"[DEBUG] Barcode scanned from URL: {barcode}")
-            return barcode
-    
-    # Check session state (for postMessage communication)
-    if 'scanned_barcode_realtime' in st.session_state:
-        barcode = st.session_state['scanned_barcode_realtime']
-        del st.session_state['scanned_barcode_realtime']
-        print(f"[DEBUG] Barcode scanned from session state: {barcode}")
-        return barcode
+    components.html(html_code, height=700)
     
     return None
-
