@@ -323,10 +323,10 @@ def barcode_scanner_realtime():
     """
     
     # Create component
+    # Note: components.html() doesn't support 'key' parameter in some Streamlit versions
     components.html(
         html_code,
-        height=600,
-        key="barcode_scanner_realtime"
+        height=600
     )
     
     # Check for scanned barcode from URL

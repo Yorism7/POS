@@ -218,10 +218,10 @@ def barcode_scanner_component():
     """
     
     # Create component
+    # Note: components.html() doesn't support 'key' parameter in some Streamlit versions
     result = components.html(
         html_code,
-        height=500,
-        key="barcode_scanner_js"
+        height=500
     )
     
     # Check for messages from JavaScript
