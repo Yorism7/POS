@@ -18,6 +18,7 @@ except ImportError:
 def get_supabase_client() -> Optional[Client]:
     """
     สร้าง Supabase client จาก Streamlit secrets หรือ environment variables
+    รองรับทั้ง Publishable key (แบบใหม่) และ anon_key (แบบเก่า)
     
     Returns:
         Supabase Client หรือ None ถ้าไม่สามารถสร้างได้
@@ -30,14 +31,17 @@ def get_supabase_client() -> Optional[Client]:
         if hasattr(st, 'secrets') and 'supabase' in st.secrets:
             supabase_config = st.secrets['supabase']
             url = supabase_config.get('url')
-            key = supabase_config.get('anon_key')
+            
+            # รองรับทั้ง publishable_key (แบบใหม่) และ anon_key (แบบเก่า)
+            key = supabase_config.get('publishable_key') or supabase_config.get('anon_key')
             
             if url and key:
                 return create_client(url, key)
         
         # Try environment variables
         url = os.environ.get('SUPABASE_URL')
-        key = os.environ.get('SUPABASE_ANON_KEY')
+        # รองรับทั้ง publishable_key และ anon_key
+        key = os.environ.get('SUPABASE_PUBLISHABLE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
         
         if url and key:
             return create_client(url, key)

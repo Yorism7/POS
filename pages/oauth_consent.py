@@ -130,18 +130,8 @@ def main():
                     query_string = urllib.parse.urlencode(params)
                     
                     # Get current base URL
-                    try:
-                        import os
-                        base_url = os.environ.get('STREAMLIT_SERVER_BASE_URL', '')
-                        if not base_url:
-                            # Try to get from Streamlit config
-                            import streamlit as st
-                            # Use relative URL if we can't determine base URL
-                            auth_url = f"/oauth/consent?{query_string}"
-                        else:
-                            auth_url = f"{base_url}/oauth/consent?{query_string}"
-                    except:
-                        auth_url = f"/oauth/consent?{query_string}"
+                    # Use relative URL (works for both local and Streamlit Cloud)
+                    auth_url = f"/oauth/consent?{query_string}"
                     
                     st.success("✅ สร้าง URL สำเร็จ!")
                     st.code(auth_url, language=None)
