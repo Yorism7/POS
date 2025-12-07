@@ -140,28 +140,59 @@ def main():
                 st.info("💡 **ถ่ายภาพ:** ถ่ายภาพบาร์โค๊ดแล้วดูตัวเลข/ตัวอักษรจากภาพ แล้วพิมพ์ในช่องด้านล่าง")
                 st.warning("⚠️ หมายเหตุ: การใช้กล้องต้องใช้ HTTPS หรือ localhost และ Browser ที่รองรับ (Chrome, Firefox, Edge)")
                 
-                try:
-                    from components.barcode_scanner import barcode_scanner_component
-                    scanned_barcode = barcode_scanner_component()
+                # Tabs for camera and upload
+                tab_camera, tab_upload = st.tabs(["📷 ถ่ายภาพ", "📤 อัพโหลดภาพ"])
+                
+                with tab_camera:
+                    try:
+                        from components.barcode_scanner import barcode_scanner_component
+                        scanned_barcode = barcode_scanner_component()
+                        
+                        # Check if barcode was scanned (component returns value)
+                        if scanned_barcode:
+                            st.session_state['barcode_search'] = scanned_barcode
+                            st.session_state['last_barcode'] = scanned_barcode
+                            st.rerun()
+                    except Exception as e:
+                        st.warning(f"⚠️ ไม่สามารถใช้กล้องได้: {str(e)}")
+                        st.info("💡 กรุณาใช้วิธีเครื่องยิงบาร์โค๊ดแทน หรืออนุญาตให้เข้าถึงกล้อง")
+                        # Fallback to manual input
+                        barcode_input = st.text_input(
+                            "📷 พิมพ์บาร์โค๊ด",
+                            key="barcode_manual",
+                            placeholder="พิมพ์บาร์โค๊ดที่นี่...",
+                            help="พิมพ์บาร์โค๊ดแล้วกด Enter"
+                        )
+                        if barcode_input:
+                            st.session_state['barcode_search'] = barcode_input.strip()
+                            st.rerun()
+                
+                with tab_upload:
+                    st.info("💡 **อัพโหลดภาพ:** อัพโหลดภาพบาร์โค๊ดจากเครื่องของคุณ แล้วดูตัวเลข/ตัวอักษรจากภาพ แล้วพิมพ์ในช่องด้านล่าง")
                     
-                    # Check if barcode was scanned (component returns value)
-                    if scanned_barcode:
-                        st.session_state['barcode_search'] = scanned_barcode
-                        st.session_state['last_barcode'] = scanned_barcode
-                        st.rerun()
-                except Exception as e:
-                    st.warning(f"⚠️ ไม่สามารถใช้กล้องได้: {str(e)}")
-                    st.info("💡 กรุณาใช้วิธีเครื่องยิงบาร์โค๊ดแทน หรืออนุญาตให้เข้าถึงกล้อง")
-                    # Fallback to manual input
-                    barcode_input = st.text_input(
-                        "📷 พิมพ์บาร์โค๊ด",
-                        key="barcode_manual",
-                        placeholder="พิมพ์บาร์โค๊ดที่นี่...",
-                        help="พิมพ์บาร์โค๊ดแล้วกด Enter"
+                    uploaded_file = st.file_uploader(
+                        "📤 อัพโหลดภาพบาร์โค๊ด",
+                        type=['png', 'jpg', 'jpeg', 'webp'],
+                        help="รองรับไฟล์: PNG, JPG, JPEG, WebP",
+                        key="barcode_upload"
                     )
-                    if barcode_input:
-                        st.session_state['barcode_search'] = barcode_input.strip()
-                        st.rerun()
+                    
+                    if uploaded_file is not None:
+                        # Display uploaded image
+                        st.image(uploaded_file, caption="ภาพบาร์โค๊ดที่อัพโหลด", width=300)
+                        
+                        # Manual input for barcode from uploaded image
+                        barcode_input_upload = st.text_input(
+                            "📷 พิมพ์บาร์โค๊ดจากภาพ",
+                            key="barcode_manual_upload",
+                            placeholder="ดูตัวเลข/ตัวอักษรจากภาพแล้วพิมพ์ที่นี่...",
+                            help="ดูตัวเลข/ตัวอักษรจากภาพที่อัพโหลดแล้วพิมพ์บาร์โค๊ด"
+                        )
+                        
+                        if barcode_input_upload:
+                            st.session_state['barcode_search'] = barcode_input_upload.strip()
+                            st.session_state['last_barcode'] = barcode_input_upload.strip()
+                            st.rerun()
         else:
             # Barcode scanner input (for physical scanner)
             col_barcode, col_barcode_btn = st.columns([3, 1])
