@@ -1,0 +1,29 @@
+# Render.com Infrastructure as Code
+# Deploy with: render deploy
+
+services:
+  - type: web
+    name: pos-system
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
+    plan: free
+    # Option 1: Use Persistent Disk for SQLite
+    disk:
+      name: database
+      mountPath: /data
+      sizeGB: 1
+    # Option 2: Use Render Postgres (uncomment below and comment disk section)
+    # envVars:
+    #   - key: DATABASE_URL
+    #     fromDatabase:
+    #       name: pos-database
+    #       property: connectionString
+
+# Uncomment to use Render Postgres instead of SQLite
+# databases:
+#   - name: pos-database
+#     databaseName: pos
+#     user: pos_user
+#     plan: free
+

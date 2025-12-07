@@ -107,32 +107,58 @@ def main():
         )
         
         if scanner_mode == "📷 ใช้กล้องมือถือ/เว็บแคม":
-            st.info("💡 เปิดกล้องและชี้ไปที่บาร์โค๊ด ระบบจะสแกนอัตโนมัติ")
-            st.warning("⚠️ หมายเหตุ: การใช้กล้องต้องใช้ HTTPS หรือ localhost และ Browser ที่รองรับ (Chrome, Firefox, Edge)")
+            # ให้เลือกแบบ real-time หรือถ่ายภาพ
+            scan_type = st.radio(
+                "เลือกวิธีสแกน",
+                ["⚡ Real-time (สแกนทันที)", "📷 ถ่ายภาพ"],
+                horizontal=True,
+                key="scan_type"
+            )
             
-            # Camera barcode scanner
-            try:
-                from components.barcode_scanner import barcode_scanner_component
-                scanned_barcode = barcode_scanner_component()
+            if scan_type == "⚡ Real-time (สแกนทันที)":
+                st.info("💡 **Real-time Scanning:** กดปุ่ม 'เริ่มสแกน' แล้วชี้กล้องไปที่บาร์โค๊ด ระบบจะสแกนทันที!")
+                st.warning("⚠️ หมายเหตุ: ต้องใช้ HTTPS หรือ localhost และ Browser ที่รองรับ (Chrome, Firefox, Edge)")
                 
-                # Check if barcode was scanned (component returns value)
-                if scanned_barcode:
-                    st.session_state['barcode_search'] = scanned_barcode
-                    st.session_state['last_barcode'] = scanned_barcode
-                    st.rerun()
-            except Exception as e:
-                st.warning(f"⚠️ ไม่สามารถใช้กล้องได้: {str(e)}")
-                st.info("💡 กรุณาใช้วิธีเครื่องยิงบาร์โค๊ดแทน หรืออนุญาตให้เข้าถึงกล้อง")
-                # Fallback to manual input
-                barcode_input = st.text_input(
-                    "📷 พิมพ์บาร์โค๊ด",
-                    key="barcode_manual",
-                    placeholder="พิมพ์บาร์โค๊ดที่นี่...",
-                    help="พิมพ์บาร์โค๊ดแล้วกด Enter"
-                )
-                if barcode_input:
-                    st.session_state['barcode_search'] = barcode_input.strip()
-                    st.rerun()
+                # Real-time barcode scanner
+                try:
+                    from components.barcode_scanner_realtime import barcode_scanner_realtime
+                    scanned_barcode = barcode_scanner_realtime()
+                    
+                    # Check if barcode was scanned
+                    if scanned_barcode:
+                        st.session_state['barcode_search'] = scanned_barcode
+                        st.session_state['last_barcode'] = scanned_barcode
+                        st.rerun()
+                except Exception as e:
+                    st.warning(f"⚠️ ไม่สามารถใช้กล้องได้: {str(e)}")
+                    st.info("💡 กรุณาใช้วิธีถ่ายภาพแทน หรืออนุญาตให้เข้าถึงกล้อง")
+            else:
+                # Camera barcode scanner (ถ่ายภาพ)
+                st.info("💡 **ถ่ายภาพ:** ถ่ายภาพบาร์โค๊ดแล้วดูตัวเลข/ตัวอักษรจากภาพ แล้วพิมพ์ในช่องด้านล่าง")
+                st.warning("⚠️ หมายเหตุ: การใช้กล้องต้องใช้ HTTPS หรือ localhost และ Browser ที่รองรับ (Chrome, Firefox, Edge)")
+                
+                try:
+                    from components.barcode_scanner import barcode_scanner_component
+                    scanned_barcode = barcode_scanner_component()
+                    
+                    # Check if barcode was scanned (component returns value)
+                    if scanned_barcode:
+                        st.session_state['barcode_search'] = scanned_barcode
+                        st.session_state['last_barcode'] = scanned_barcode
+                        st.rerun()
+                except Exception as e:
+                    st.warning(f"⚠️ ไม่สามารถใช้กล้องได้: {str(e)}")
+                    st.info("💡 กรุณาใช้วิธีเครื่องยิงบาร์โค๊ดแทน หรืออนุญาตให้เข้าถึงกล้อง")
+                    # Fallback to manual input
+                    barcode_input = st.text_input(
+                        "📷 พิมพ์บาร์โค๊ด",
+                        key="barcode_manual",
+                        placeholder="พิมพ์บาร์โค๊ดที่นี่...",
+                        help="พิมพ์บาร์โค๊ดแล้วกด Enter"
+                    )
+                    if barcode_input:
+                        st.session_state['barcode_search'] = barcode_input.strip()
+                        st.rerun()
         else:
             # Barcode scanner input (for physical scanner)
             col_barcode, col_barcode_btn = st.columns([3, 1])

@@ -14,15 +14,38 @@
 
 ## การติดตั้ง
 
+### สำหรับ Local Development (ทุกฟีเจอร์)
+
 1. ติดตั้ง dependencies:
 ```bash
-pip install -r requirements.txt
+# Windows
+setup_local.bat
+
+# Linux/Mac
+chmod +x setup_local.sh
+./setup_local.sh
+
+# หรือติดตั้งด้วยตนเอง
+pip install -r requirements-local.txt
 ```
 
-2. รันแอปพลิเคชัน:
+2. ติดตั้ง System Dependencies (สำหรับ pyzbar):
+   - **Windows**: ใช้ conda หรือ pre-built wheels
+   - **macOS**: `brew install zbar`
+   - **Linux**: `sudo apt-get install libzbar0`
+
+3. รันแอปพลิเคชัน:
 ```bash
 streamlit run app.py
 ```
+
+### สำหรับ Streamlit Cloud
+
+ใช้ `requirements.txt` (ไม่มี pyzbar และ opencv-python)
+
+ดูรายละเอียดเพิ่มเติม:
+- [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md) - คู่มือ Local Development
+- [STREAMLIT_CLOUD_SETUP.md](STREAMLIT_CLOUD_SETUP.md) - คู่มือ Deploy บน Streamlit Cloud
 
 ## โครงสร้างโปรเจค
 

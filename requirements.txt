@@ -1,3 +1,4 @@
+# Core dependencies - ติดตั้งได้บน Streamlit Cloud
 streamlit>=1.28.0
 sqlalchemy>=2.0.0
 pandas>=2.0.0
@@ -8,9 +9,16 @@ openpyxl>=3.1.0
 python-dateutil>=2.8.0
 python-barcode>=0.15.1
 Pillow>=10.0.0
-streamlit-camera-input-live>=0.2.0
-pyzbar>=0.1.9
-opencv-python>=4.8.0
 numpy>=1.24.0
 qrcode[pil]>=7.4.2
 
+# Database drivers for external databases (optional)
+psycopg2-binary>=2.9.0  # PostgreSQL
+pymysql>=1.1.0  # MySQL
+
+# Optional dependencies - ลองติดตั้งได้ (ถ้าไม่ติดตั้งได้จะใช้ fallback)
+# streamlit-camera-input-live>=0.2.0  # อาจจะติดตั้งได้ ลองดู
+
+# Dependencies ที่ติดตั้งไม่ได้บน Streamlit Cloud (ต้องการ system packages)
+# pyzbar>=0.1.9  # ต้องการ libzbar0 (system package)
+# opencv-python>=4.8.0  # ใหญ่เกินไปและไม่จำเป็น

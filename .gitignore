@@ -184,7 +184,9 @@ $RECYCLE.BIN/
 .nfs*
 
 # Streamlit
-.streamlit/
+# Keep config.toml for deployment
+.streamlit/secrets.toml
+.streamlit/credentials.toml
 
 # Logs
 *.log

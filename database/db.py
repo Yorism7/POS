@@ -1,8 +1,10 @@
 """
 Database Connection and Initialization
+Supports both SQLite (local) and PostgreSQL/MySQL (cloud) for persistent storage
 """
 
 import os
+import streamlit as st
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from database.models import (
@@ -13,20 +15,111 @@ from database.models import (
 )
 import bcrypt
 
-# Database path
-DB_DIR = "data"
-DB_PATH = os.path.join(DB_DIR, "pos.db")
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+def get_database_url():
+    """
+    Get database URL from environment variables or Streamlit secrets
+    Priority:
+    1. Streamlit secrets (for Streamlit Cloud)
+    2. Environment variables
+    3. Default to SQLite (local development)
+    """
+    # Try Streamlit secrets first (for Streamlit Cloud)
+    try:
+        if hasattr(st, 'secrets') and 'database' in st.secrets:
+            db_config = st.secrets['database']
+            db_type = db_config.get('type', 'sqlite').lower()
+            
+            if db_type == 'postgresql':
+                # PostgreSQL connection
+                user = db_config.get('user')
+                password = db_config.get('password')
+                host = db_config.get('host')
+                port = db_config.get('port', 5432)
+                database = db_config.get('database')
+                
+                if all([user, password, host, database]):
+                    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+            
+            elif db_type == 'mysql':
+                # MySQL connection
+                user = db_config.get('user')
+                password = db_config.get('password')
+                host = db_config.get('host')
+                port = db_config.get('port', 3306)
+                database = db_config.get('database')
+                
+                if all([user, password, host, database]):
+                    return f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+            
+            elif db_type == 'sqlite':
+                # SQLite with custom path
+                db_path = db_config.get('path', 'data/pos.db')
+                return f"sqlite:///{db_path}"
+    except Exception as e:
+        print(f"Error reading Streamlit secrets: {e}")
+    
+    # Try environment variables
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        return database_url
+    
+    # Default to SQLite (local development)
+    # Check for persistent disk (Render.com) first
+    if os.path.exists("/data"):
+        # Render.com persistent disk - data will persist!
+        DB_DIR = "/data"
+        os.makedirs(DB_DIR, exist_ok=True)
+        print("✅ Using persistent disk at /data (Render.com)")
+    elif os.path.exists("/tmp"):
+        # Streamlit Cloud or Linux - use /tmp (temporary, will be lost on restart)
+        # ⚠️ WARNING: On Streamlit Cloud, SQLite in /tmp will be LOST on restart!
+        DB_DIR = "/tmp"
+        print("⚠️ WARNING: Using SQLite in /tmp - data will be LOST on restart!")
+        print("💡 For persistent storage:")
+        print("   - Streamlit Cloud: Use external database (PostgreSQL/MySQL)")
+        print("   - Render.com: Use persistent disk at /data")
+        print("💡 See STREAMLIT_CLOUD_DATABASE.md or RENDER_DEPLOY.md for setup instructions")
+    else:
+        # Local development
+        DB_DIR = "data"
+        os.makedirs(DB_DIR, exist_ok=True)
+    
+    DB_PATH = os.path.join(DB_DIR, "pos.db")
+    return f"sqlite:///{DB_PATH}"
 
-# Create database directory if not exists
-os.makedirs(DB_DIR, exist_ok=True)
+# Get database URL
+DATABASE_URL = get_database_url()
 
-# Create engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    echo=False
-)
+# Determine database type
+is_postgresql = DATABASE_URL.startswith('postgresql://')
+is_mysql = DATABASE_URL.startswith('mysql://') or DATABASE_URL.startswith('mysql+pymysql://')
+is_sqlite = DATABASE_URL.startswith('sqlite:///')
+
+# Create engine with appropriate settings
+if is_sqlite:
+    # SQLite specific settings
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        echo=False
+    )
+elif is_postgresql:
+    # PostgreSQL specific settings
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  # Verify connections before using
+        echo=False
+    )
+elif is_mysql:
+    # MySQL specific settings
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        echo=False
+    )
+else:
+    # Default
+    engine = create_engine(DATABASE_URL, echo=False)
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -40,36 +133,70 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     
     # Add missing columns for existing databases
+    # Note: PostgreSQL and MySQL use different syntax
     try:
         conn = engine.connect()
-        # Check sales table columns
-        result = conn.execute(text("PRAGMA table_info(sales)"))
-        columns = [row[1] for row in result]
         
+        # Get table columns based on database type
+        if is_sqlite:
+            # SQLite: Use PRAGMA
+            result = conn.execute(text("PRAGMA table_info(sales)"))
+            columns = [row[1] for row in result]
+        elif is_postgresql:
+            # PostgreSQL: Query information_schema
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'sales'
+            """))
+            columns = [row[0] for row in result]
+        elif is_mysql:
+            # MySQL: Query information_schema
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = DATABASE() AND table_name = 'sales'
+            """))
+            columns = [row[0] for row in result]
+        else:
+            columns = []
+        
+        # Define default values based on database type
+        if is_sqlite:
+            bool_default = "0"
+            float_default = "0"
+        else:
+            bool_default = "FALSE"
+            float_default = "0.0"
+        
+        # Add columns with appropriate syntax
         if 'is_void' not in columns:
-            conn.execute(text("ALTER TABLE sales ADD COLUMN is_void BOOLEAN DEFAULT 0"))
+            if is_sqlite:
+                conn.execute(text("ALTER TABLE sales ADD COLUMN is_void BOOLEAN DEFAULT 0"))
+            else:
+                conn.execute(text("ALTER TABLE sales ADD COLUMN is_void BOOLEAN DEFAULT FALSE"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN void_reason TEXT"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN voided_by INTEGER"))
-            conn.execute(text("ALTER TABLE sales ADD COLUMN voided_at DATETIME"))
+            conn.execute(text("ALTER TABLE sales ADD COLUMN voided_at TIMESTAMP"))
         
         if 'discount_amount' not in columns:
-            conn.execute(text("ALTER TABLE sales ADD COLUMN discount_amount FLOAT DEFAULT 0"))
-            conn.execute(text("ALTER TABLE sales ADD COLUMN final_amount FLOAT DEFAULT 0"))
+            conn.execute(text(f"ALTER TABLE sales ADD COLUMN discount_amount FLOAT DEFAULT {float_default}"))
+            conn.execute(text(f"ALTER TABLE sales ADD COLUMN final_amount FLOAT DEFAULT {float_default}"))
             # Update existing records: final_amount = total_amount
-            conn.execute(text("UPDATE sales SET final_amount = total_amount WHERE final_amount = 0"))
+            conn.execute(text("UPDATE sales SET final_amount = total_amount WHERE final_amount = 0 OR final_amount IS NULL"))
         
         # Add new columns for CRM and cashless payment
         if 'customer_id' not in columns:
             conn.execute(text("ALTER TABLE sales ADD COLUMN customer_id INTEGER"))
             conn.execute(text("ALTER TABLE sales ADD COLUMN payment_reference TEXT"))
-            conn.execute(text("ALTER TABLE sales ADD COLUMN points_earned FLOAT DEFAULT 0"))
-            conn.execute(text("ALTER TABLE sales ADD COLUMN points_used FLOAT DEFAULT 0"))
+            conn.execute(text(f"ALTER TABLE sales ADD COLUMN points_earned FLOAT DEFAULT {float_default}"))
+            conn.execute(text(f"ALTER TABLE sales ADD COLUMN points_used FLOAT DEFAULT {float_default}"))
         
         # Add tax columns
         if 'tax_rate' not in columns:
-            conn.execute(text("ALTER TABLE sales ADD COLUMN tax_rate FLOAT DEFAULT 0"))
-            conn.execute(text("ALTER TABLE sales ADD COLUMN tax_amount FLOAT DEFAULT 0"))
-            conn.execute(text("ALTER TABLE sales ADD COLUMN subtotal FLOAT DEFAULT 0"))
+            conn.execute(text(f"ALTER TABLE sales ADD COLUMN tax_rate FLOAT DEFAULT {float_default}"))
+            conn.execute(text(f"ALTER TABLE sales ADD COLUMN tax_amount FLOAT DEFAULT {float_default}"))
+            conn.execute(text(f"ALTER TABLE sales ADD COLUMN subtotal FLOAT DEFAULT {float_default}"))
         
         # Add branch_id column for multi-branch support
         if 'branch_id' not in columns:
@@ -79,21 +206,57 @@ def init_db():
         # Note: SQLite doesn't support ALTER COLUMN, so we'll handle this in application code
         
         # Check sale_items table columns
-        result_items = conn.execute(text("PRAGMA table_info(sale_items)"))
-        item_columns = [row[1] for row in result_items]
+        if is_sqlite:
+            result_items = conn.execute(text("PRAGMA table_info(sale_items)"))
+            item_columns = [row[1] for row in result_items]
+        elif is_postgresql:
+            result_items = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'sale_items'
+            """))
+            item_columns = [row[0] for row in result_items]
+        elif is_mysql:
+            result_items = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = DATABASE() AND table_name = 'sale_items'
+            """))
+            item_columns = [row[0] for row in result_items]
+        else:
+            item_columns = []
         
         if 'discount_amount' not in item_columns:
-            conn.execute(text("ALTER TABLE sale_items ADD COLUMN discount_amount FLOAT DEFAULT 0"))
+            float_default = "0" if is_sqlite else "0.0"
+            conn.execute(text(f"ALTER TABLE sale_items ADD COLUMN discount_amount FLOAT DEFAULT {float_default}"))
         
         # Check products table columns
-        result_products = conn.execute(text("PRAGMA table_info(products)"))
-        product_columns = [row[1] for row in result_products]
+        if is_sqlite:
+            result_products = conn.execute(text("PRAGMA table_info(products)"))
+            product_columns = [row[1] for row in result_products]
+        elif is_postgresql:
+            result_products = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'products'
+            """))
+            product_columns = [row[0] for row in result_products]
+        elif is_mysql:
+            result_products = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = DATABASE() AND table_name = 'products'
+            """))
+            product_columns = [row[0] for row in result_products]
+        else:
+            product_columns = []
         
         if 'branch_id' not in product_columns:
             conn.execute(text("ALTER TABLE products ADD COLUMN branch_id INTEGER"))
         
         if 'reorder_point' not in product_columns:
-            conn.execute(text("ALTER TABLE products ADD COLUMN reorder_point FLOAT DEFAULT 0"))
+            float_default = "0" if is_sqlite else "0.0"
+            conn.execute(text(f"ALTER TABLE products ADD COLUMN reorder_point FLOAT DEFAULT {float_default}"))
         
         conn.commit()
         conn.close()
