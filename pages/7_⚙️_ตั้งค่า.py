@@ -13,6 +13,10 @@ from utils.expense import (
     create_expense_category, get_all_expense_categories
 )
 from utils.helpers import format_currency
+from utils.store_settings import (
+    get_store_settings, get_promptpay_settings, get_receipt_settings,
+    save_store_settings, save_promptpay_settings, save_receipt_settings
+)
 import pandas as pd
 import plotly.express as px
 
@@ -158,30 +162,16 @@ def main():
         
         st.subheader("🏪 ตั้งค่าร้าน")
         
-        # Store settings (stored in session state for now, can be moved to database)
-        if 'store_name' not in st.session_state:
-            st.session_state.store_name = "ร้านขายของชำและอาหารตามสั่ง"
-        if 'store_address' not in st.session_state:
-            st.session_state.store_address = ""
-        if 'store_phone' not in st.session_state:
-            st.session_state.store_phone = ""
-        if 'store_tax_id' not in st.session_state:
-            st.session_state.store_tax_id = ""
-        
-        # PromptPay QR Settings
-        if 'promptpay_phone' not in st.session_state:
-            st.session_state.promptpay_phone = ""
-        if 'promptpay_citizen_id' not in st.session_state:
-            st.session_state.promptpay_citizen_id = ""
-        if 'promptpay_type' not in st.session_state:
-            st.session_state.promptpay_type = "phone"  # phone or citizen_id
+        # อ่านการตั้งค่าจาก database
+        store_settings = get_store_settings()
+        promptpay_settings = get_promptpay_settings()
         
         with st.form("store_settings_form"):
             st.markdown("#### 📋 ข้อมูลร้าน")
-            store_name = st.text_input("ชื่อร้าน *", value=st.session_state.store_name)
-            store_address = st.text_area("ที่อยู่", value=st.session_state.store_address)
-            store_phone = st.text_input("เบอร์โทรศัพท์", value=st.session_state.store_phone)
-            store_tax_id = st.text_input("เลขประจำตัวผู้เสียภาษี", value=st.session_state.store_tax_id)
+            store_name = st.text_input("ชื่อร้าน *", value=store_settings['store_name'])
+            store_address = st.text_area("ที่อยู่", value=store_settings['store_address'])
+            store_phone = st.text_input("เบอร์โทรศัพท์", value=store_settings['store_phone'])
+            store_tax_id = st.text_input("เลขประจำตัวผู้เสียภาษี", value=store_settings['store_tax_id'])
             
             st.divider()
             st.markdown("#### 💰 ตั้งค่าพร้อมเพย์ (PromptPay)")
@@ -191,14 +181,14 @@ def main():
                 "ประเภทบัญชีพร้อมเพย์",
                 ["phone", "citizen_id"],
                 format_func=lambda x: "เบอร์โทรศัพท์" if x == "phone" else "เลขบัตรประชาชน",
-                index=0 if st.session_state.promptpay_type == "phone" else 1,
+                index=0 if promptpay_settings['promptpay_type'] == "phone" else 1,
                 horizontal=True
             )
             
             if promptpay_type == "phone":
                 promptpay_phone = st.text_input(
                     "เบอร์โทรศัพท์พร้อมเพย์ *",
-                    value=st.session_state.promptpay_phone,
+                    value=promptpay_settings['promptpay_phone'],
                     placeholder="08XXXXXXXX",
                     help="กรอกเบอร์โทรศัพท์ที่ลงทะเบียนพร้อมเพย์ (ไม่ต้องใส่ - หรือเว้นวรรค)"
                 )
@@ -206,7 +196,7 @@ def main():
             else:
                 promptpay_citizen_id = st.text_input(
                     "เลขบัตรประชาชนพร้อมเพย์ *",
-                    value=st.session_state.promptpay_citizen_id,
+                    value=promptpay_settings['promptpay_citizen_id'],
                     placeholder="1234567890123",
                     help="กรอกเลขบัตรประชาชนที่ลงทะเบียนพร้อมเพย์ (13 หลัก)"
                 )
@@ -214,69 +204,77 @@ def main():
             
             if st.form_submit_button("💾 บันทึก", type="primary", width='stretch'):
                 if store_name:
-                    st.session_state.store_name = store_name
-                    st.session_state.store_address = store_address
-                    st.session_state.store_phone = store_phone
-                    st.session_state.store_tax_id = store_tax_id
-                    st.session_state.promptpay_type = promptpay_type
-                    st.session_state.promptpay_phone = promptpay_phone
-                    st.session_state.promptpay_citizen_id = promptpay_citizen_id
-                    st.success("✅ บันทึกการตั้งค่าสำเร็จ")
+                    # บันทึกลง database
+                    user_id = st.session_state.get('user_id')
+                    success_store = save_store_settings(
+                        store_name, store_address, store_phone, store_tax_id, user_id
+                    )
+                    success_promptpay = save_promptpay_settings(
+                        promptpay_type, promptpay_phone, promptpay_citizen_id, user_id
+                    )
+                    
+                    if success_store and success_promptpay:
+                        st.success("✅ บันทึกการตั้งค่าสำเร็จ")
+                        st.rerun()  # รีโหลดหน้าเพื่อแสดงค่าที่บันทึกใหม่
+                    else:
+                        st.error("❌ เกิดข้อผิดพลาดในการบันทึกการตั้งค่า")
                 else:
                     st.warning("⚠️ กรุณากรอกชื่อร้าน")
         
         # Display current settings
         st.divider()
         st.write("**การตั้งค่าปัจจุบัน:**")
-        st.write(f"ชื่อร้าน: {st.session_state.store_name}")
-        st.write(f"ที่อยู่: {st.session_state.store_address or '-'}")
-        st.write(f"เบอร์โทรศัพท์: {st.session_state.store_phone or '-'}")
-        st.write(f"เลขประจำตัวผู้เสียภาษี: {st.session_state.store_tax_id or '-'}")
+        st.write(f"ชื่อร้าน: {store_settings['store_name']}")
+        st.write(f"ที่อยู่: {store_settings['store_address'] or '-'}")
+        st.write(f"เบอร์โทรศัพท์: {store_settings['store_phone'] or '-'}")
+        st.write(f"เลขประจำตัวผู้เสียภาษี: {store_settings['store_tax_id'] or '-'}")
         
         st.divider()
         st.write("**💰 ตั้งค่าพร้อมเพย์:**")
-        if st.session_state.promptpay_type == "phone":
-            if st.session_state.promptpay_phone:
+        if promptpay_settings['promptpay_type'] == "phone":
+            if promptpay_settings['promptpay_phone']:
                 st.write(f"ประเภท: เบอร์โทรศัพท์")
-                st.write(f"เบอร์โทรศัพท์: {st.session_state.promptpay_phone}")
+                st.write(f"เบอร์โทรศัพท์: {promptpay_settings['promptpay_phone']}")
             else:
                 st.warning("⚠️ ยังไม่ได้ตั้งค่าเบอร์โทรศัพท์พร้อมเพย์")
         else:
-            if st.session_state.promptpay_citizen_id:
+            if promptpay_settings['promptpay_citizen_id']:
                 st.write(f"ประเภท: เลขบัตรประชาชน")
-                st.write(f"เลขบัตรประชาชน: {st.session_state.promptpay_citizen_id}")
+                st.write(f"เลขบัตรประชาชน: {promptpay_settings['promptpay_citizen_id']}")
             else:
                 st.warning("⚠️ ยังไม่ได้ตั้งค่าเลขบัตรประชาชนพร้อมเพย์")
     
     with tab2:
         st.subheader("🧾 ตั้งค่าใบเสร็จ")
         
-        # Receipt settings
-        if 'receipt_footer' not in st.session_state:
-            st.session_state.receipt_footer = "ขอบคุณที่ใช้บริการ"
-        if 'receipt_show_tax' not in st.session_state:
-            st.session_state.receipt_show_tax = False
-        if 'receipt_tax_rate' not in st.session_state:
-            st.session_state.receipt_tax_rate = 7.0
+        # อ่านการตั้งค่าจาก database
+        receipt_settings = get_receipt_settings()
         
         with st.form("receipt_settings_form"):
-            receipt_footer = st.text_input("ข้อความท้ายใบเสร็จ", value=st.session_state.receipt_footer)
-            receipt_show_tax = st.checkbox("แสดงภาษีมูลค่าเพิ่ม", value=st.session_state.receipt_show_tax)
-            receipt_tax_rate = st.number_input("อัตราภาษี (%)", min_value=0.0, max_value=100.0, value=st.session_state.receipt_tax_rate, step=0.1)
+            receipt_footer = st.text_input("ข้อความท้ายใบเสร็จ", value=receipt_settings['receipt_footer'])
+            receipt_show_tax = st.checkbox("แสดงภาษีมูลค่าเพิ่ม", value=receipt_settings['receipt_show_tax'])
+            receipt_tax_rate = st.number_input("อัตราภาษี (%)", min_value=0.0, max_value=100.0, value=receipt_settings['receipt_tax_rate'], step=0.1)
             
             if st.form_submit_button("💾 บันทึก", type="primary", width='stretch'):
-                st.session_state.receipt_footer = receipt_footer
-                st.session_state.receipt_show_tax = receipt_show_tax
-                st.session_state.receipt_tax_rate = receipt_tax_rate
-                st.success("✅ บันทึกการตั้งค่าใบเสร็จสำเร็จ")
+                # บันทึกลง database
+                user_id = st.session_state.get('user_id')
+                success = save_receipt_settings(
+                    receipt_footer, receipt_show_tax, receipt_tax_rate, user_id
+                )
+                
+                if success:
+                    st.success("✅ บันทึกการตั้งค่าใบเสร็จสำเร็จ")
+                    st.rerun()  # รีโหลดหน้าเพื่อแสดงค่าที่บันทึกใหม่
+                else:
+                    st.error("❌ เกิดข้อผิดพลาดในการบันทึกการตั้งค่า")
         
         # Display current settings
         st.divider()
         st.write("**การตั้งค่าใบเสร็จปัจจุบัน:**")
-        st.write(f"ข้อความท้ายใบเสร็จ: {st.session_state.receipt_footer}")
-        st.write(f"แสดงภาษีมูลค่าเพิ่ม: {'ใช่' if st.session_state.receipt_show_tax else 'ไม่ใช่'}")
-        if st.session_state.receipt_show_tax:
-            st.write(f"อัตราภาษี: {st.session_state.receipt_tax_rate}%")
+        st.write(f"ข้อความท้ายใบเสร็จ: {receipt_settings['receipt_footer']}")
+        st.write(f"แสดงภาษีมูลค่าเพิ่ม: {'ใช่' if receipt_settings['receipt_show_tax'] else 'ไม่ใช่'}")
+        if receipt_settings['receipt_show_tax']:
+            st.write(f"อัตราภาษี: {receipt_settings['receipt_tax_rate']}%")
     
     with tab3:
         st.subheader("💾 สำรองข้อมูล")

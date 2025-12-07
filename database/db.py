@@ -11,7 +11,7 @@ from database.models import (
     Base, User, Category, Product, Menu, MenuItem, StockTransaction, 
     Sale, SaleItem, Customer, Membership, LoyaltyTransaction, Coupon, CouponUsage,
     EmployeeShift, Attendance, Expense, ExpenseCategory, Promotion, PromotionRule, PromotionUsage,
-    Branch, StockTransfer, Supplier, PurchaseOrder, PurchaseOrderItem, Batch
+    Branch, StockTransfer, Supplier, PurchaseOrder, PurchaseOrderItem, Batch, StoreSetting, SavedLogin
 )
 import bcrypt
 
@@ -247,6 +247,13 @@ def get_session() -> Session:
 def init_db():
     """Initialize database - create all tables"""
     Base.metadata.create_all(bind=engine)
+    
+    # Initialize default settings
+    try:
+        from utils.store_settings import init_default_settings
+        init_default_settings()
+    except Exception as e:
+        print(f"[WARNING] Failed to initialize default settings: {e}")
     
     # Add missing columns for existing databases
     # Note: PostgreSQL and MySQL use different syntax

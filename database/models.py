@@ -43,6 +43,23 @@ class User(Base):
     shifts = relationship("EmployeeShift", back_populates="user")
     attendances = relationship("Attendance", back_populates="user")
     expenses = relationship("Expense", back_populates="creator")
+    saved_logins = relationship("SavedLogin", back_populates="user", cascade="all, delete-orphan")
+
+class SavedLogin(Base):
+    """SavedLogin model - เก็บข้อมูลการล็อคอินที่ต้องการจดจำ"""
+    __tablename__ = 'saved_logins'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    username = Column(String(50), nullable=False)  # เก็บ username เพื่อความสะดวก
+    remember_token = Column(String(255), nullable=False, unique=True, index=True)  # Token สำหรับ auto-login
+    created_at = Column(DateTime, default=datetime.now)
+    last_used_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    expires_at = Column(DateTime, nullable=True)  # วันที่หมดอายุ (null = ไม่หมดอายุ)
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="saved_logins")
 
 class Category(Base):
     """Category model"""
@@ -518,6 +535,20 @@ class Promotion(Base):
     # Relationships
     rules = relationship("PromotionRule", back_populates="promotion", cascade="all, delete-orphan")
     usages = relationship("PromotionUsage", back_populates="promotion")
+
+class StoreSetting(Base):
+    """StoreSetting model - ตั้งค่าร้านและระบบ"""
+    __tablename__ = 'store_settings'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, nullable=False, index=True)  # เช่น 'store_name', 'promptpay_phone'
+    value = Column(Text, nullable=True)  # ค่าของการตั้งค่า (JSON string สำหรับข้อมูลซับซ้อน)
+    description = Column(Text, nullable=True)  # คำอธิบาย
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    updated_by = Column(Integer, ForeignKey('users.id'), nullable=True)  # ผู้ที่อัพเดทล่าสุด
+    
+    # Relationships
+    updater = relationship("User", foreign_keys=[updated_by])
 
 class PromotionRule(Base):
     """PromotionRule model - เงื่อนไขโปรโมชั่น"""

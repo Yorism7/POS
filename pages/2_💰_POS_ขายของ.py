@@ -15,6 +15,7 @@ from utils.helpers import (
 from utils.receipt import generate_receipt_text, generate_receipt_pdf
 from utils.validators import validate_stock_availability
 from utils.sound import play_beep_sound
+from utils.store_settings import get_promptpay_settings
 import json
 
 st.set_page_config(page_title="POS - ขายของ", page_icon="💰", layout="wide")
@@ -493,12 +494,13 @@ def main():
                 try:
                     from utils.promptpay import generate_promptpay_qr, validate_promptpay_settings
                     
-                    # Get PromptPay settings from session state
-                    promptpay_type = st.session_state.get('promptpay_type', 'phone')
+                    # Get PromptPay settings from database
+                    promptpay_settings = get_promptpay_settings()
+                    promptpay_type = promptpay_settings.get('promptpay_type', 'phone')
                     if promptpay_type == "phone":
-                        promptpay_id = st.session_state.get('promptpay_phone', '')
+                        promptpay_id = promptpay_settings.get('promptpay_phone', '')
                     else:
-                        promptpay_id = st.session_state.get('promptpay_citizen_id', '')
+                        promptpay_id = promptpay_settings.get('promptpay_citizen_id', '')
                     
                     # Validate settings
                     is_valid, error_msg = validate_promptpay_settings(promptpay_type, promptpay_id)

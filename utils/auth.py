@@ -6,6 +6,65 @@ Authentication Helper Functions
 import streamlit as st
 from typing import Optional
 
+def check_persistent_login():
+    """
+    ตรวจสอบว่ามี persistent login หรือไม่ และ auto-login ถ้ามี
+    """
+    # ตรวจสอบว่ามี remember_token ใน session_state หรือไม่
+    remember_token = st.session_state.get('remember_token')
+    
+    if remember_token and not st.session_state.get('authenticated', False):
+        from utils.persistent_login import get_user_from_token
+        user_data = get_user_from_token(remember_token)
+        
+        if user_data:
+            # Auto-login
+            st.session_state.authenticated = True
+            st.session_state.user_id = user_data['id']
+            st.session_state.username = user_data['username']
+            st.session_state.role = user_data['role']
+            from datetime import datetime
+            st.session_state.last_activity = datetime.now()
+            return True
+    
+    # ถ้าไม่มี token ใน session_state ให้ตรวจสอบจาก database (สำหรับกรณีที่ refresh)
+    if not st.session_state.get('authenticated', False):
+        from utils.persistent_login import get_saved_username
+        from database.db import get_session
+        from database.models import SavedLogin
+        from datetime import datetime
+        
+        saved_username = get_saved_username()
+        if saved_username:
+            session = get_session()
+            try:
+                # หา saved login ที่ active ล่าสุด
+                saved_login = session.query(SavedLogin).filter(
+                    SavedLogin.username == saved_username,
+                    SavedLogin.is_active == True
+                ).order_by(SavedLogin.last_used_at.desc()).first()
+                
+                if saved_login:
+                    # ตรวจสอบว่าหมดอายุหรือไม่
+                    if not saved_login.expires_at or saved_login.expires_at > datetime.now():
+                        # ใช้ token นี้เพื่อ auto-login
+                        st.session_state.remember_token = saved_login.remember_token
+                        from utils.persistent_login import get_user_from_token
+                        user_data = get_user_from_token(saved_login.remember_token)
+                        
+                        if user_data:
+                            # Auto-login
+                            st.session_state.authenticated = True
+                            st.session_state.user_id = user_data['id']
+                            st.session_state.username = user_data['username']
+                            st.session_state.role = user_data['role']
+                            st.session_state.last_activity = datetime.now()
+                            return True
+            finally:
+                session.close()
+    
+    return False
+
 def require_auth(redirect_to_login: bool = True) -> bool:
     """
     ตรวจสอบว่า user ได้ล็อคอินแล้วหรือไม่
@@ -17,6 +76,10 @@ def require_auth(redirect_to_login: bool = True) -> bool:
     Returns:
         True ถ้า authenticated, False ถ้าไม่ได้ authenticated
     """
+    # ตรวจสอบ persistent login ก่อน
+    if not st.session_state.get('authenticated', False):
+        check_persistent_login()
+    
     # ตรวจสอบ authentication
     if 'authenticated' not in st.session_state or not st.session_state.authenticated:
         if redirect_to_login:
@@ -34,7 +97,8 @@ def show_login_page():
     st.warning("⚠️ กรุณาเข้าสู่ระบบก่อนใช้งาน")
     
     # Load saved username if exists
-    saved_username = st.session_state.get('saved_username', '')
+    from utils.persistent_login import get_saved_username
+    saved_username = get_saved_username()
     
     with st.form("login_form"):
         username = st.text_input("ชื่อผู้ใช้", value=saved_username)
@@ -82,13 +146,21 @@ def show_login_page():
                         st.session_state.role = user.role
                         st.session_state.last_activity = datetime.now()
                         
-                        # Save login info if remember me is checked
+                        # Save persistent login if remember me is checked
                         if remember_me:
-                            st.session_state.remember_me = True
-                            st.session_state.saved_username = user.username
+                            from utils.persistent_login import save_login, set_saved_username
+                            remember_token = save_login(user.id, user.username, remember_forever=True)
+                            if remember_token:
+                                st.session_state.remember_token = remember_token
+                                st.session_state.remember_me = True
+                                set_saved_username(user.username)  # บันทึก username ล่าสุด
                         else:
+                            # Clear any existing saved login
+                            from utils.persistent_login import clear_saved_login
+                            clear_saved_login(user_id=user.id)
+                            if 'remember_token' in st.session_state:
+                                del st.session_state.remember_token
                             st.session_state.remember_me = False
-                            st.session_state.saved_username = None
                         
                         st.success(f"✅ ยินดีต้อนรับ {user.username}!")
                         st.rerun()

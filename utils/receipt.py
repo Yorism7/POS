@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Optional
 from database.db import get_session
 from database.models import Sale, SaleItem
+from utils.store_settings import get_store_settings, get_receipt_settings
 import os
 
 def generate_receipt_pdf(sale_id: int, output_path: Optional[str] = None) -> str:
@@ -41,8 +42,13 @@ def generate_receipt_pdf(sale_id: int, output_path: Optional[str] = None) -> str
         normal_style = styles['Normal']
         normal_style.alignment = TA_LEFT
         
+        # Get store and receipt settings
+        store_settings = get_store_settings()
+        receipt_settings = get_receipt_settings()
+        store_name = store_settings.get('store_name', 'ร้านขายของชำและอาหารตามสั่ง')
+        
         # Header
-        story.append(Paragraph("ร้านขายของชำและอาหารตามสั่ง", title_style))
+        story.append(Paragraph(store_name, title_style))
         story.append(Spacer(1, 5*mm))
         story.append(Paragraph(f"ใบเสร็จรับเงิน", normal_style))
         story.append(Paragraph(f"เลขที่: {sale.id:06d}", normal_style))
@@ -70,6 +76,16 @@ def generate_receipt_pdf(sale_id: int, output_path: Optional[str] = None) -> str
         table_data.append(['', '', '', 'รวม', f"{sale.total_amount:.2f}"])
         if sale.discount_amount > 0:
             table_data.append(['', '', '', 'ส่วนลด', f"-{sale.discount_amount:.2f}"])
+        
+        # Calculate tax if enabled
+        subtotal = sale.final_amount
+        if receipt_settings.get('receipt_show_tax', False):
+            tax_rate = receipt_settings.get('receipt_tax_rate', 7.0) / 100
+            tax_amount = subtotal * tax_rate / (1 + tax_rate)
+            subtotal_before_tax = subtotal - tax_amount
+            table_data.append(['', '', '', 'รวมก่อนภาษี', f"{subtotal_before_tax:.2f}"])
+            table_data.append(['', '', '', f'ภาษีมูลค่าเพิ่ม ({receipt_settings.get("receipt_tax_rate", 7.0):.1f}%)', f"{tax_amount:.2f}"])
+        
         table_data.append(['', '', '', 'รวมทั้งสิ้น', f"{sale.final_amount:.2f}"])
         
         table = Table(table_data, colWidths=[50*mm, 15*mm, 15*mm, 15*mm, 20*mm])
@@ -98,7 +114,8 @@ def generate_receipt_pdf(sale_id: int, output_path: Optional[str] = None) -> str
         story.append(Spacer(1, 5*mm))
         
         # Footer
-        story.append(Paragraph("ขอบคุณที่ใช้บริการ", normal_style))
+        receipt_footer = receipt_settings.get('receipt_footer', 'ขอบคุณที่ใช้บริการ')
+        story.append(Paragraph(receipt_footer, normal_style))
         story.append(Paragraph("---", normal_style))
         
         # Build PDF
@@ -116,9 +133,14 @@ def generate_receipt_text(sale_id: int) -> str:
         if not sale:
             raise ValueError(f"Sale {sale_id} not found")
         
+        # Get store and receipt settings
+        store_settings = get_store_settings()
+        receipt_settings = get_receipt_settings()
+        store_name = store_settings.get('store_name', 'ร้านขายของชำและอาหารตามสั่ง')
+        
         receipt = []
         receipt.append("=" * 40)
-        receipt.append("ร้านขายของชำและอาหารตามสั่ง")
+        receipt.append(store_name)
         receipt.append("=" * 40)
         receipt.append(f"ใบเสร็จรับเงิน")
         receipt.append(f"เลขที่: {sale.id:06d}")
@@ -143,12 +165,23 @@ def generate_receipt_text(sale_id: int) -> str:
         receipt.append(f"{'รวม':<30} {sale.total_amount:>10.2f}")
         if sale.discount_amount > 0:
             receipt.append(f"{'ส่วนลด':<30} -{sale.discount_amount:>9.2f}")
+        
+        # Calculate tax if enabled
+        subtotal = sale.final_amount
+        if receipt_settings.get('receipt_show_tax', False):
+            tax_rate = receipt_settings.get('receipt_tax_rate', 7.0) / 100
+            tax_amount = subtotal * tax_rate / (1 + tax_rate)
+            subtotal_before_tax = subtotal - tax_amount
+            receipt.append(f"{'รวมก่อนภาษี':<30} {subtotal_before_tax:>10.2f}")
+            receipt.append(f"{'ภาษีมูลค่าเพิ่ม (' + str(receipt_settings.get('receipt_tax_rate', 7.0)) + '%)':<30} {tax_amount:>10.2f}")
+        
         receipt.append(f"{'รวมทั้งสิ้น':<30} {sale.final_amount:>10.2f}")
         receipt.append("-" * 50)
         payment_text = "เงินสด" if sale.payment_method == 'cash' else "โอนเงิน"
         receipt.append(f"วิธีชำระ: {payment_text}")
         receipt.append("=" * 40)
-        receipt.append("ขอบคุณที่ใช้บริการ")
+        receipt_footer = receipt_settings.get('receipt_footer', 'ขอบคุณที่ใช้บริการ')
+        receipt.append(receipt_footer)
         receipt.append("=" * 40)
         
         return "\n".join(receipt)

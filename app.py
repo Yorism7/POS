@@ -147,8 +147,8 @@ def init_session_state():
         st.session_state.last_activity = None
     if 'remember_me' not in st.session_state:
         st.session_state.remember_me = False
-    if 'saved_username' not in st.session_state:
-        st.session_state.saved_username = None
+    if 'remember_token' not in st.session_state:
+        st.session_state.remember_token = None
 
 def create_default_admin():
     """Create default admin user if not exists"""
@@ -241,6 +241,10 @@ def main():
     init_db()
     create_default_admin()
     
+    # Check persistent login first
+    from utils.auth import check_persistent_login
+    check_persistent_login()
+    
     # Check authentication
     if not st.session_state.authenticated:
         login_page()
@@ -252,10 +256,17 @@ def main():
         st.caption(f"บทบาท: {st.session_state.role}")
         
         if st.button("🚪 ออกจากระบบ", use_container_width=True):
+            # Clear persistent login if exists
+            if 'remember_token' in st.session_state:
+                from utils.persistent_login import clear_saved_login
+                clear_saved_login(remember_token=st.session_state.remember_token)
+                del st.session_state.remember_token
+            
             st.session_state.authenticated = False
             st.session_state.user_id = None
             st.session_state.username = None
             st.session_state.role = None
+            st.session_state.remember_me = False
             st.rerun()
     
     # Main content - Pages will be loaded automatically by Streamlit
