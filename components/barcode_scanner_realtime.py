@@ -20,12 +20,33 @@ def barcode_scanner_realtime():
     st.info("💡 **วิธีใช้งาน:** กดปุ่ม 'เริ่มสแกน' แล้วชี้กล้องไปที่บาร์โค๊ด ระบบจะสแกนทันที!")
     
     # Check if barcode was scanned (from URL parameter)
-    query_params = st.experimental_get_query_params()
+    # Use new st.query_params API (Streamlit 1.28+)
+    try:
+        if hasattr(st, 'query_params'):
+            query_params_raw = st.query_params
+            # Convert to dict format
+            query_params = {}
+            for key, value in query_params_raw.items():
+                if isinstance(value, list):
+                    query_params[key] = value
+                else:
+                    query_params[key] = [value]
+        else:
+            query_params = st.experimental_get_query_params()
+    except:
+        query_params = {}
+    
     scanned_barcode = query_params.get('barcode', [None])[0]
     
     if scanned_barcode:
-        # Clear URL parameter
-        st.experimental_set_query_params()
+        # Clear URL parameter - use new API if available
+        try:
+            if hasattr(st, 'query_params'):
+                st.query_params.clear()
+            else:
+                st.experimental_set_query_params()
+        except:
+            pass
         # Store in session state
         st.session_state['scanned_barcode'] = scanned_barcode
         st.success(f"✅ สแกนบาร์โค๊ดสำเร็จ: {scanned_barcode}")
@@ -330,11 +351,30 @@ def barcode_scanner_realtime():
     )
     
     # Check for scanned barcode from URL
-    query_params = st.experimental_get_query_params()
+    try:
+        if hasattr(st, 'query_params'):
+            query_params_raw = st.query_params
+            query_params = {}
+            for key, value in query_params_raw.items():
+                if isinstance(value, list):
+                    query_params[key] = value
+                else:
+                    query_params[key] = [value]
+        else:
+            query_params = st.experimental_get_query_params()
+    except:
+        query_params = {}
+    
     if 'barcode' in query_params:
         barcode = query_params['barcode'][0]
         # Clear query params
-        st.experimental_set_query_params()
+        try:
+            if hasattr(st, 'query_params'):
+                st.query_params.clear()
+            else:
+                st.experimental_set_query_params()
+        except:
+            pass
         return barcode
     
     return None

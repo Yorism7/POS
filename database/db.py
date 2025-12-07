@@ -87,6 +87,22 @@ def get_database_url():
     DB_PATH = os.path.join(DB_DIR, "pos.db")
     return f"sqlite:///{DB_PATH}"
 
+# Export DB_PATH and DB_DIR for backward compatibility
+# Note: These are only valid when using SQLite
+# For PostgreSQL/MySQL, these variables are not used
+try:
+    # Try to get DB_DIR from the default SQLite path
+    if os.path.exists("/data"):
+        DB_DIR = "/data"
+    elif os.path.exists("/tmp"):
+        DB_DIR = "/tmp"
+    else:
+        DB_DIR = "data"
+    DB_PATH = os.path.join(DB_DIR, "pos.db")
+except:
+    DB_DIR = "data"
+    DB_PATH = os.path.join(DB_DIR, "pos.db")
+
 # Get database URL
 DATABASE_URL = get_database_url()
 

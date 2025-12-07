@@ -48,22 +48,27 @@ def main():
     st.title("🔐 Authorization Request")
     
     # Get OAuth parameters from query string
-    # Try new API first, fallback to experimental
+    # Use new st.query_params API (Streamlit 1.28+)
     try:
+        # Try new API first
         if hasattr(st, 'query_params'):
-            query_params = st.query_params
+            query_params_raw = st.query_params
             # Convert to dict format for compatibility
-            query_dict = {}
-            for key, value in query_params.items():
+            query_params = {}
+            for key, value in query_params_raw.items():
                 if isinstance(value, list):
-                    query_dict[key] = value
+                    query_params[key] = value
                 else:
-                    query_dict[key] = [value]
-            query_params = query_dict
+                    query_params[key] = [value]
         else:
+            # Fallback to experimental API (deprecated)
             query_params = st.experimental_get_query_params()
-    except:
-        query_params = st.experimental_get_query_params()
+    except Exception as e:
+        # Fallback to experimental API if new API fails
+        try:
+            query_params = st.experimental_get_query_params()
+        except:
+            query_params = {}
     
     # Debug: Show all query parameters
     with st.expander("🔍 Debug: Query Parameters"):
