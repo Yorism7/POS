@@ -118,15 +118,6 @@ def main():
             
             if st.form_submit_button("🔗 สร้าง Authorization URL", type="primary", use_container_width=True):
                 if test_client_id and test_redirect_uri:
-                    # Store in session state for redirect
-                    st.session_state['test_oauth_params'] = {
-                        'client_id': test_client_id,
-                        'redirect_uri': test_redirect_uri,
-                        'scope': test_scope,
-                        'state': test_state,
-                        'response_type': 'code'
-                    }
-                    
                     # Build query string
                     import urllib.parse
                     params = {
@@ -137,14 +128,37 @@ def main():
                         'state': test_state
                     }
                     query_string = urllib.parse.urlencode(params)
-                    auth_url = f"/oauth/consent?{query_string}"
+                    
+                    # Get current base URL
+                    try:
+                        import os
+                        base_url = os.environ.get('STREAMLIT_SERVER_BASE_URL', '')
+                        if not base_url:
+                            # Try to get from Streamlit config
+                            import streamlit as st
+                            # Use relative URL if we can't determine base URL
+                            auth_url = f"/oauth/consent?{query_string}"
+                        else:
+                            auth_url = f"{base_url}/oauth/consent?{query_string}"
+                    except:
+                        auth_url = f"/oauth/consent?{query_string}"
                     
                     st.success("✅ สร้าง URL สำเร็จ!")
                     st.code(auth_url, language=None)
                     
-                    # Use st.query_params to set parameters and reload
-                    st.experimental_set_query_params(**params)
-                    st.rerun()
+                    # Use JavaScript redirect instead of st.experimental_set_query_params
+                    # This avoids the Streamlit API conflict
+                    st.markdown(f"""
+                    <script>
+                        // Auto-redirect after 1 second
+                        setTimeout(function() {{
+                            window.location.href = '{auth_url}';
+                        }}, 1000);
+                    </script>
+                    """, unsafe_allow_html=True)
+                    
+                    st.info("🔄 กำลัง redirect ไปที่ Authorization URL... (1 วินาที)")
+                    st.markdown(f'<a href="{auth_url}" target="_self" style="display: inline-block; padding: 10px 20px; background-color: #667eea; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">🔗 เปิด Authorization URL ทันที</a>', unsafe_allow_html=True)
                 else:
                     st.warning("⚠️ กรุณากรอก Client ID และ Redirect URI")
         
