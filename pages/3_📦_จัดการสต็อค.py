@@ -162,6 +162,50 @@ def main():
                                     new_unit = st.text_input("หน่วย", value=product.unit, key=f"unit_{product.id}")
                                     new_barcode = st.text_input("บาร์โค๊ด", value=product.barcode or "", key=f"barcode_{product.id}", placeholder="สแกนหรือพิมพ์บาร์โค๊ด", help="ใช้เครื่องยิงบาร์โค๊ดหรือกล้องมือถือสแกนได้")
                                 
+                                # ภาพบาร์โค๊ด
+                                st.divider()
+                                st.write("**📷 ภาพบาร์โค๊ด**")
+                                
+                                # แสดงภาพบาร์โค๊ดปัจจุบัน
+                                if product.barcode_image_path:
+                                    col_barcode_curr, col_barcode_new = st.columns([1, 1])
+                                    with col_barcode_curr:
+                                        st.write("**ภาพบาร์โค๊ดปัจจุบัน:**")
+                                        try:
+                                            if product.barcode_image_path.startswith(('http://', 'https://')):
+                                                st.image(product.barcode_image_path, width=200)
+                                            elif os.path.exists(product.barcode_image_path):
+                                                st.image(product.barcode_image_path, width=200)
+                                        except:
+                                            st.caption("ไม่สามารถแสดงภาพได้")
+                                
+                                uploaded_barcode_image_path = image_uploader_widget(
+                                    "อัพโหลดภาพบาร์โค๊ด",
+                                    key=f"barcode_image_upload_{product.id}",
+                                    image_type="barcode",
+                                    help_text="รองรับไฟล์: JPG, PNG, WebP (ขนาดแนะนำ: ไม่เกิน 1200x400px)"
+                                )
+                                
+                                barcode_image_url = st.text_input(
+                                    "หรือใส่ URL ภาพบาร์โค๊ด",
+                                    value=product.barcode_image_path if product.barcode_image_path and product.barcode_image_path.startswith(('http://', 'https://')) else "",
+                                    placeholder="https://example.com/barcode.jpg",
+                                    key=f"barcode_image_url_{product.id}"
+                                )
+                                
+                                # กำหนด barcode_image_path
+                                new_barcode_image_path = product.barcode_image_path  # ค่าเดิม
+                                if uploaded_barcode_image_path:
+                                    # ลบภาพเก่าถ้ามี (ถ้าเป็นไฟล์ในเครื่อง)
+                                    if product.barcode_image_path and not product.barcode_image_path.startswith(('http://', 'https://')):
+                                        delete_image(product.barcode_image_path)
+                                    new_barcode_image_path = uploaded_barcode_image_path
+                                elif barcode_image_url and barcode_image_url.strip():
+                                    # ลบภาพเก่าถ้ามี (ถ้าเป็นไฟล์ในเครื่อง)
+                                    if product.barcode_image_path and not product.barcode_image_path.startswith(('http://', 'https://')):
+                                        delete_image(product.barcode_image_path)
+                                    new_barcode_image_path = barcode_image_url.strip()
+                                
                                 with col2:
                                     new_cost = st.number_input("ราคาต้นทุน", min_value=0.0, value=float(product.cost_price), key=f"cost_{product.id}")
                                     new_selling = st.number_input("ราคาขาย", min_value=0.0, value=float(product.selling_price), key=f"selling_{product.id}")
@@ -239,6 +283,7 @@ def main():
                                             product.selling_price = new_selling
                                             product.stock_quantity = new_stock
                                             product.min_stock = new_min_stock
+                                            product.barcode_image_path = new_barcode_image_path
                                             product.updated_at = datetime.now()
                                             session.commit()
                                             st.session_state[f"editing_product_{product.id}"] = False
@@ -308,6 +353,33 @@ def main():
                     if barcode != st.session_state.add_product_barcode:
                         st.session_state.add_product_barcode = barcode
                     
+                    # ภาพบาร์โค๊ด
+                    st.divider()
+                    st.write("**📷 ภาพบาร์โค๊ด**")
+                    col_barcode_img1, col_barcode_img2 = st.columns([2, 1])
+                    with col_barcode_img1:
+                        uploaded_barcode_image_path = image_uploader_widget(
+                            "อัพโหลดภาพบาร์โค๊ด",
+                            key="barcode_image_upload",
+                            image_type="barcode",
+                            help_text="รองรับไฟล์: JPG, PNG, WebP (ขนาดแนะนำ: ไม่เกิน 1200x400px)"
+                        )
+                    with col_barcode_img2:
+                        barcode_image_url = st.text_input(
+                            "หรือใส่ URL ภาพบาร์โค๊ด",
+                            placeholder="https://example.com/barcode.jpg",
+                            key="barcode_image_url"
+                        )
+                        if barcode_image_url:
+                            st.caption("💡 ใช้ URL แทนการอัพโหลด")
+                    
+                    # กำหนด barcode_image_path
+                    barcode_image_path = None
+                    if uploaded_barcode_image_path:
+                        barcode_image_path = uploaded_barcode_image_path
+                    elif barcode_image_url and barcode_image_url.strip():
+                        barcode_image_path = barcode_image_url.strip()
+                    
                     cost_price = st.number_input("ราคาต้นทุน *", min_value=0.0, value=0.0)
                 
                 with col2:
@@ -361,7 +433,8 @@ def main():
                                             selling_price=selling_price,
                                             stock_quantity=stock_quantity,
                                             min_stock=min_stock,
-                                            image_path=image_path
+                                            image_path=image_path,
+                                            barcode_image_path=barcode_image_path
                                         )
                                         session.add(product)
                                         session.commit()
@@ -380,7 +453,8 @@ def main():
                                         selling_price=selling_price,
                                         stock_quantity=stock_quantity,
                                         min_stock=min_stock,
-                                        image_path=image_path
+                                        image_path=image_path,
+                                        barcode_image_path=barcode_image_path
                                     )
                                     session.add(product)
                                     session.commit()

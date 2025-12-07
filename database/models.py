@@ -91,6 +91,7 @@ class Product(Base):
     stock_quantity = Column(Float, nullable=False, default=0.0)  # จำนวนสต็อค
     min_stock = Column(Float, nullable=False, default=0.0)  # จำนวนขั้นต่ำ
     barcode = Column(String(100), nullable=True, unique=True, index=True)  # บาร์โค๊ด
+    barcode_image_path = Column(String(500), nullable=True)  # ภาพบาร์โค๊ด (อัพโหลด)
     image_path = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

@@ -14,11 +14,13 @@ import base64
 IMAGE_DIR = "data/images"
 PRODUCT_IMAGE_DIR = os.path.join(IMAGE_DIR, "products")
 MENU_IMAGE_DIR = os.path.join(IMAGE_DIR, "menus")
+BARCODE_IMAGE_DIR = os.path.join(IMAGE_DIR, "barcodes")
 
 def ensure_image_directories():
     """สร้างโฟลเดอร์สำหรับเก็บรูปภาพถ้ายังไม่มี"""
     os.makedirs(PRODUCT_IMAGE_DIR, exist_ok=True)
     os.makedirs(MENU_IMAGE_DIR, exist_ok=True)
+    os.makedirs(BARCODE_IMAGE_DIR, exist_ok=True)
 
 def save_uploaded_image(uploaded_file, image_type="product", max_size=(800, 800), quality=85):
     """
@@ -52,8 +54,13 @@ def save_uploaded_image(uploaded_file, image_type="product", max_size=(800, 800)
             background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
             image = background
         
-        # Resize ถ้าใหญ่เกินไป
-        if image.size[0] > max_size[0] or image.size[1] > max_size[1]:
+        # Resize ถ้าใหญ่เกินไป (สำหรับ barcode ใช้ขนาดที่เหมาะสม)
+        if image_type == "barcode":
+            # Barcode image ควรเป็นแนวนอนและมีความละเอียดสูง
+            barcode_max_size = (1200, 400)
+            if image.size[0] > barcode_max_size[0] or image.size[1] > barcode_max_size[1]:
+                image.thumbnail(barcode_max_size, Image.Resampling.LANCZOS)
+        elif image.size[0] > max_size[0] or image.size[1] > max_size[1]:
             image.thumbnail(max_size, Image.Resampling.LANCZOS)
         
         # สร้างชื่อไฟล์
@@ -67,6 +74,8 @@ def save_uploaded_image(uploaded_file, image_type="product", max_size=(800, 800)
             save_dir = PRODUCT_IMAGE_DIR
         elif image_type == "menu":
             save_dir = MENU_IMAGE_DIR
+        elif image_type == "barcode":
+            save_dir = BARCODE_IMAGE_DIR
         else:
             save_dir = IMAGE_DIR
         

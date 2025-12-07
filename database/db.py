@@ -506,6 +506,48 @@ def init_db():
         import traceback
         traceback.print_exc()
     
+    # Add barcode_image_path column to products table if it doesn't exist
+    try:
+        conn = engine.connect()
+        if is_sqlite:
+            result = conn.execute(text("PRAGMA table_info(products)"))
+            columns = [row[1] for row in result]
+        elif is_postgresql:
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'products' AND column_name = 'barcode_image_path'
+            """))
+            columns = [row[0] for row in result] if result.rowcount > 0 else []
+        elif is_mysql:
+            result = conn.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_schema = DATABASE() 
+                AND table_name = 'products' 
+                AND column_name = 'barcode_image_path'
+            """))
+            columns = [row[0] for row in result] if result.rowcount > 0 else []
+        else:
+            columns = []
+        
+        if 'barcode_image_path' not in columns:
+            print("[INFO] Adding barcode_image_path column to products table...")
+            if is_postgresql:
+                with conn.begin():
+                    conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path VARCHAR(500)"))
+            elif is_mysql:
+                with conn.begin():
+                    conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path VARCHAR(500)"))
+            else:  # SQLite
+                conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path TEXT"))
+            print("[INFO] ✅ barcode_image_path column added")
+        conn.close()
+    except Exception as e:
+        print(f"[WARNING] Error adding barcode_image_path column: {e}")
+        import traceback
+        traceback.print_exc()
+    
     # Create default data if needed
     session = get_session()
     try:
