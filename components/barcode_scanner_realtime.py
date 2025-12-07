@@ -234,16 +234,17 @@ def barcode_scanner_realtime():
             let qrScanning = false;
             
             // รองรับบาร์โค๊ด 1D หลายประเภท (QuaggaJS)
+            // เน้น EAN-13 และ Code 128 เป็นหลัก (บาร์โค๊ดสินค้าทั่วไป)
             const readers = [
-                'code_128_reader',
-                'ean_reader',
-                'ean_8_reader',
-                'code_39_reader',
-                'code_39_vin_reader',
-                'codabar_reader',
-                'upc_reader',
-                'upc_e_reader',
-                'i2of5_reader'
+                'ean_reader',        // EAN-13, EAN-8 (สำคัญที่สุด - บาร์โค๊ดสินค้าทั่วไป)
+                'code_128_reader',  // Code 128 (รองรับบาร์โค๊ดทั่วไป)
+                'upc_reader',       // UPC-A, UPC-E
+                'ean_8_reader',     // EAN-8
+                'code_39_reader',   // Code 39
+                'codabar_reader',   // Codabar
+                'i2of5_reader',     // Interleaved 2 of 5
+                'code_39_vin_reader', // Code 39 VIN
+                'upc_e_reader'      // UPC-E
             ];
             
             // ตั้งค่า canvas สำหรับ jsQR (QR Code)
@@ -260,26 +261,34 @@ def barcode_scanner_realtime():
                     return;
                 }
                 
-                // ตั้งค่า QuaggaJS
+                // ตั้งค่า QuaggaJS - ปรับปรุงให้อ่านบาร์โค๊ด EAN-13 ได้ดีขึ้น
                 Quagga.init({
                     inputStream: {
                         name: "Live",
                         type: "LiveStream",
                         target: document.querySelector('#interactive'),
                         constraints: {
-                            width: 640,
-                            height: 480,
-                            facingMode: "environment" // ใช้กล้องหลังบนมือถือ
+                            width: { min: 640, ideal: 1280, max: 1920 },
+                            height: { min: 480, ideal: 720, max: 1080 },
+                            facingMode: "environment", // ใช้กล้องหลังบนมือถือ
+                            aspectRatio: { ideal: 1.7777777778 } // 16:9
+                        },
+                        area: { // กำหนดพื้นที่สแกน (ไม่ใช้ทั้งหน้าจอ)
+                            top: "15%",
+                            right: "15%",
+                            left: "15%",
+                            bottom: "15%"
                         }
                     },
                     locator: {
-                        patchSize: "medium",
-                        halfSample: true
+                        patchSize: "large", // เปลี่ยนเป็น large เพื่อความแม่นยำ
+                        halfSample: false // ปิด halfSample เพื่อความละเอียด
                     },
-                    numOfWorkers: 2,
+                    numOfWorkers: 4, // เพิ่ม workers เพื่อความเร็ว
                     frequency: 10, // สแกนทุก 10 frames
                     decoder: {
-                        readers: readers
+                        readers: readers,
+                        multiple: false // อ่านทีละบาร์โค๊ด
                     },
                     locate: true
                 }, function(err) {
@@ -298,10 +307,11 @@ def barcode_scanner_realtime():
                     }
                     
                     console.log('✅ QuaggaJS initialized successfully');
+                    console.log('📋 Supported readers:', readers);
                     scanning = true;
                     document.getElementById('startBtn').disabled = true;
                     document.getElementById('stopBtn').disabled = false;
-                    updateStatus('🔍 กำลังสแกน... ชี้กล้องไปที่บาร์โค๊ด', 'info');
+                    updateStatus('🔍 กำลังสแกน... ชี้กล้องไปที่บาร์โค๊ด (EAN-13, Code 128, UPC-A, QR Code)', 'info');
                     
                     // เริ่มสแกน
                     Quagga.start();
@@ -310,16 +320,46 @@ def barcode_scanner_realtime():
                     startQRCodeScanning();
                 });
                 
-                // ฟังก์ชันเมื่อพบบาร์โค๊ด 1D (QuaggaJS)
+                // ฟังก์ชันเมื่อพบบาร์โค๊ด 1D (QuaggaJS) - ปรับปรุงให้ดีขึ้น
                 Quagga.onDetected(function(result) {
                     if (!scanning) return;
+                    
+                    if (!result || !result.codeResult) {
+                        console.warn('⚠️ Invalid result from QuaggaJS');
+                        return;
+                    }
                     
                     const code = result.codeResult.code;
                     const format = result.codeResult.format || 'unknown';
                     
+                    // ตรวจสอบว่า code มีค่าจริง
+                    if (!code || code.trim() === '') {
+                        console.warn('⚠️ Empty barcode detected, skipping...');
+                        return;
+                    }
+                    
                     // ป้องกันการสแกนซ้ำ (debounce)
                     if (lastScannedCode === code) {
                         return;
+                    }
+                    
+                    // ตรวจสอบความถูกต้องของบาร์โค๊ด (สำหรับ EAN-13)
+                    if (format === 'ean' || format === 'ean_13') {
+                        if (code.length !== 13) {
+                            console.warn('⚠️ Invalid EAN-13 length:', code.length, 'Code:', code);
+                            return;
+                        }
+                        // ตรวจสอบ checksum digit สำหรับ EAN-13
+                        const digits = code.split('').map(Number);
+                        let sum = 0;
+                        for (let i = 0; i < 12; i++) {
+                            sum += digits[i] * (i % 2 === 0 ? 1 : 3);
+                        }
+                        const checkDigit = (10 - (sum % 10)) % 10;
+                        if (checkDigit !== digits[12]) {
+                            console.warn('⚠️ Invalid EAN-13 checksum. Expected:', checkDigit, 'Got:', digits[12]);
+                            return;
+                        }
                     }
                     
                     lastScannedCode = code;
@@ -327,6 +367,7 @@ def barcode_scanner_realtime():
                     
                     console.log('✅ Barcode detected:', code, 'Type:', format);
                     console.log('📍 Scan count:', scanCount);
+                    console.log('📍 Full result:', result.codeResult);
                     
                     // แสดงผลลัพธ์
                     const formatNames = {
