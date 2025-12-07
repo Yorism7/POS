@@ -105,11 +105,10 @@ def main():
                     st.error("⚠️ ข้อมูลจะหายเมื่อ restart!")
         
         with col3:
-            # Test connection
+                    # Test connection
             if st.button("🔍 ทดสอบการเชื่อมต่อ", use_container_width=True):
                 with st.spinner("กำลังทดสอบการเชื่อมต่อ..."):
                     try:
-                        from database.db import get_session
                         session = get_session()
                         try:
                             # Try a simple query
