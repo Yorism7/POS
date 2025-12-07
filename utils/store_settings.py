@@ -39,6 +39,13 @@ def ensure_store_settings_table():
         print(f"[ERROR] Failed to ensure store_settings table: {e}")
         import traceback
         traceback.print_exc()
+        # Try to create table directly
+        try:
+            StoreSetting.__table__.create(bind=engine, checkfirst=True)
+            print(f"[INFO] ✅ store_settings table created via fallback")
+            return True
+        except Exception as e2:
+            print(f"[ERROR] Fallback table creation also failed: {e2}")
         return False
 
 def get_setting(key: str, default: str = "") -> str:
@@ -85,6 +92,9 @@ def set_setting(key: str, value: str, description: str = None, updated_by: int =
     Returns:
         True ถ้าบันทึกสำเร็จ, False ถ้าเกิดข้อผิดพลาด
     """
+    # Ensure table exists first
+    ensure_store_settings_table()
+    
     session = get_session()
     try:
         setting = session.query(StoreSetting).filter(StoreSetting.key == key).first()
@@ -124,10 +134,16 @@ def get_all_settings() -> dict:
     Returns:
         Dictionary ของการตั้งค่าทั้งหมด {key: value}
     """
+    # Ensure table exists first
+    ensure_store_settings_table()
+    
     session = get_session()
     try:
         settings = session.query(StoreSetting).all()
         return {s.key: s.value or "" for s in settings}
+    except Exception as e:
+        print(f"[WARNING] Error reading all settings: {e}")
+        return {}
     finally:
         session.close()
 
@@ -135,6 +151,12 @@ def init_default_settings():
     """
     สร้างการตั้งค่าเริ่มต้นถ้ายังไม่มี
     """
+    # Ensure table exists first
+    try:
+        StoreSetting.__table__.create(bind=engine, checkfirst=True)
+    except Exception:
+        pass  # Table might already exist
+    
     default_settings = {
         'store_name': ('ร้านขายของชำและอาหารตามสั่ง', 'ชื่อร้าน'),
         'store_address': ('', 'ที่อยู่ร้าน'),

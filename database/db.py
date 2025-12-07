@@ -251,15 +251,21 @@ def init_db():
     
     # Create all tables including new ones (StoreSetting, SavedLogin)
     print("[INFO] Creating all database tables...")
-    Base.metadata.create_all(bind=engine)
-    print("[INFO] ✅ All tables created")
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("[INFO] ✅ All tables created via Base.metadata.create_all()")
+    except Exception as e:
+        print(f"[WARNING] Base.metadata.create_all() failed: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Force create new tables if they don't exist (for existing databases)
     try:
         print("[INFO] Verifying new tables exist...")
         StoreSetting.__table__.create(bind=engine, checkfirst=True)
+        print("[INFO] ✅ store_settings table verified")
         SavedLogin.__table__.create(bind=engine, checkfirst=True)
-        print("[INFO] ✅ New tables verified")
+        print("[INFO] ✅ saved_logins table verified")
     except Exception as e:
         print(f"[WARNING] Error verifying tables: {e}")
         import traceback
