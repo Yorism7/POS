@@ -37,6 +37,127 @@ def main():
     ])
     
     with tab1:
+        # Database Connection Status
+        st.subheader("🔌 สถานะการเชื่อมต่อ Database")
+        
+        # Get database info
+        from database.db import DATABASE_URL, is_postgresql, is_mysql, is_sqlite, DB_PATH
+        import os
+        
+        # Check if running on Streamlit Cloud
+        is_streamlit_cloud = os.environ.get('STREAMLIT_CLOUD', '').lower() == 'true'
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if is_postgresql:
+                st.success("✅ PostgreSQL (Supabase)")
+                db_type = "PostgreSQL"
+            elif is_mysql:
+                st.success("✅ MySQL")
+                db_type = "MySQL"
+            else:
+                if is_streamlit_cloud:
+                    st.error("❌ SQLite (⚠️ ไม่ถาวร!)")
+                else:
+                    st.warning("⚠️ SQLite (Local)")
+                db_type = "SQLite"
+        
+        with col2:
+            if is_postgresql or is_mysql:
+                # Parse connection info
+                try:
+                    if is_postgresql:
+                        # postgresql://user:pass@host:port/db
+                        parts = DATABASE_URL.replace('postgresql://', '').split('@')
+                        if len(parts) == 2:
+                            user_pass = parts[0].split(':')
+                            host_db = parts[1].split('/')
+                            if len(host_db) == 2:
+                                host_port = host_db[0].split(':')
+                                host = host_port[0] if len(host_port) > 0 else "Unknown"
+                                port = host_port[1] if len(host_port) > 1 else "5432"
+                                database = host_db[1] if len(host_db) > 1 else "Unknown"
+                                
+                                st.metric("Host", host)
+                                st.metric("Port", port)
+                                st.metric("Database", database)
+                    elif is_mysql:
+                        # mysql+pymysql://user:pass@host:port/db
+                        parts = DATABASE_URL.replace('mysql+pymysql://', '').split('@')
+                        if len(parts) == 2:
+                            user_pass = parts[0].split(':')
+                            host_db = parts[1].split('/')
+                            if len(host_db) == 2:
+                                host_port = host_db[0].split(':')
+                                host = host_port[0] if len(host_port) > 0 else "Unknown"
+                                port = host_port[1] if len(host_port) > 1 else "3306"
+                                database = host_db[1] if len(host_db) > 1 else "Unknown"
+                                
+                                st.metric("Host", host)
+                                st.metric("Port", port)
+                                st.metric("Database", database)
+                except Exception as e:
+                    st.error(f"❌ ไม่สามารถอ่าน connection info: {e}")
+            else:
+                st.metric("Database File", DB_PATH if DB_PATH else "Unknown")
+                if is_streamlit_cloud:
+                    st.error("⚠️ ข้อมูลจะหายเมื่อ restart!")
+        
+        with col3:
+            # Test connection
+            if st.button("🔍 ทดสอบการเชื่อมต่อ", use_container_width=True):
+                with st.spinner("กำลังทดสอบการเชื่อมต่อ..."):
+                    try:
+                        from database.db import get_session
+                        session = get_session()
+                        try:
+                            # Try a simple query
+                            from database.models import Category
+                            count = session.query(Category).count()
+                            st.success(f"✅ เชื่อมต่อสำเร็จ! (พบ {count} หมวดหมู่)")
+                        except Exception as e:
+                            st.error(f"❌ เชื่อมต่อล้มเหลว: {str(e)}")
+                        finally:
+                            session.close()
+                    except Exception as e:
+                        st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+        
+        # Warnings and Info
+        if is_sqlite and is_streamlit_cloud:
+            st.error("""
+            ⚠️ **คำเตือน: กำลังใช้ SQLite บน Streamlit Cloud!**
+            
+            - ข้อมูลจะหายเมื่อ app restart
+            - ข้อมูลจะหายเมื่อ redeploy
+            - **ไม่แนะนำสำหรับ production!**
+            
+            💡 **วิธีแก้ไข:**
+            1. ไปที่ Streamlit Cloud Dashboard > Settings > Secrets
+            2. เพิ่ม `[database]` section:
+            ```toml
+            [database]
+            type = "postgresql"
+            host = "aws-1-ap-southeast-1.pooler.supabase.com"
+            port = 6543
+            user = "postgres.thvvvsyujfzntvepmvzo"
+            database = "postgres"
+            password = "YOUR_PASSWORD"
+            ```
+            3. Restart app
+            4. ดูคู่มือ: `วิธีตรวจสอบ_Streamlit_Cloud_Secrets_ถูกต้อง.md`
+            """)
+        elif is_postgresql:
+            st.success("✅ กำลังใช้ Supabase PostgreSQL - ข้อมูลจะเก็บถาวร!")
+            
+            # Check if using Transaction Pooler
+            if 'pooler.supabase.com' in DATABASE_URL and ':6543' in DATABASE_URL:
+                st.info("✅ ใช้ Transaction Pooler (แนะนำสำหรับ Streamlit Cloud)")
+            elif 'db.' in DATABASE_URL and '.supabase.co:5432' in DATABASE_URL:
+                st.warning("⚠️ ใช้ Direct Connection - อาจจะ fail บน Streamlit Cloud! ควรใช้ Transaction Pooler (port 6543)")
+        
+        st.divider()
+        
         st.subheader("🏪 ตั้งค่าร้าน")
         
         # Store settings (stored in session state for now, can be moved to database)

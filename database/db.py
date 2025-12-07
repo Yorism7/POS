@@ -23,14 +23,26 @@ def get_database_url():
     2. Environment variables
     3. Default to SQLite (local development)
     """
+    # Check if running on Streamlit Cloud
+    is_streamlit_cloud = os.environ.get('STREAMLIT_CLOUD', '').lower() == 'true'
+    if is_streamlit_cloud:
+        print("[DEBUG] 🌐 Running on Streamlit Cloud - checking for database secrets...")
+    
     # Try Streamlit secrets first (for Streamlit Cloud)
     try:
         # Check if Streamlit secrets are available
         if not hasattr(st, 'secrets'):
             print(f"[DEBUG] ⚠️ st.secrets not available")
+            if is_streamlit_cloud:
+                print(f"[DEBUG] ❌ CRITICAL: On Streamlit Cloud but st.secrets is not available!")
+                print(f"[DEBUG] 💡 Please check Streamlit Cloud Secrets configuration")
         elif 'database' not in st.secrets:
             print(f"[DEBUG] ⚠️ 'database' not found in st.secrets")
             print(f"[DEBUG] Available secrets keys: {list(st.secrets.keys()) if hasattr(st, 'secrets') else 'N/A'}")
+            if is_streamlit_cloud:
+                print(f"[DEBUG] ❌ CRITICAL: On Streamlit Cloud but '[database]' section not found in secrets!")
+                print(f"[DEBUG] 💡 Please add '[database]' section to Streamlit Cloud Secrets")
+                print(f"[DEBUG] 💡 See: คู่มือตั้งค่า_Streamlit_Cloud_Supabase.md")
         else:
             db_config = st.secrets['database']
             db_type = db_config.get('type', 'sqlite').lower()
@@ -113,11 +125,34 @@ def get_database_url():
         # Streamlit Cloud or Linux - use /tmp (temporary, will be lost on restart)
         # ⚠️ WARNING: On Streamlit Cloud, SQLite in /tmp will be LOST on restart!
         DB_DIR = "/tmp"
-        print("⚠️ WARNING: Using SQLite in /tmp - data will be LOST on restart!")
-        print("💡 For persistent storage:")
-        print("   - Streamlit Cloud: Use external database (PostgreSQL/MySQL)")
-        print("   - Render.com: Use persistent disk at /data")
-        print("💡 See STREAMLIT_CLOUD_DATABASE.md or RENDER_DEPLOY.md for setup instructions")
+        if is_streamlit_cloud:
+            print("="*60)
+            print("❌ CRITICAL WARNING: Using SQLite on Streamlit Cloud!")
+            print("="*60)
+            print("⚠️ ข้อมูลจะหายเมื่อ app restart!")
+            print("⚠️ ข้อมูลจะหายเมื่อ redeploy!")
+            print()
+            print("💡 วิธีแก้ไข:")
+            print("   1. ไปที่ Streamlit Cloud Dashboard")
+            print("   2. เลือก App ของคุณ")
+            print("   3. ไปที่ Settings > Secrets")
+            print("   4. เพิ่ม '[database]' section:")
+            print("      [database]")
+            print("      type = 'postgresql'")
+            print("      host = 'aws-1-ap-southeast-1.pooler.supabase.com'")
+            print("      port = 6543")
+            print("      user = 'postgres.thvvvsyujfzntvepmvzo'")
+            print("      database = 'postgres'")
+            print("      password = 'YOUR_PASSWORD'")
+            print()
+            print("💡 ดูคู่มือ: คู่มือตั้งค่า_Streamlit_Cloud_Supabase.md")
+            print("="*60)
+        else:
+            print("⚠️ WARNING: Using SQLite in /tmp - data will be LOST on restart!")
+            print("💡 For persistent storage:")
+            print("   - Streamlit Cloud: Use external database (PostgreSQL/MySQL)")
+            print("   - Render.com: Use persistent disk at /data")
+            print("💡 See STREAMLIT_CLOUD_DATABASE.md or RENDER_DEPLOY.md for setup instructions")
     else:
         # Local development
         DB_DIR = "data"
@@ -126,6 +161,8 @@ def get_database_url():
     DB_PATH = os.path.join(DB_DIR, "pos.db")
     sqlite_url = f"sqlite:///{DB_PATH}"
     print(f"[DEBUG] ⚠️ No database config found, defaulting to SQLite: {sqlite_url}")
+    if is_streamlit_cloud:
+        print(f"[DEBUG] ❌ This is a problem! Please configure Streamlit Cloud Secrets!")
     return sqlite_url
 
 # Export DB_PATH and DB_DIR for backward compatibility

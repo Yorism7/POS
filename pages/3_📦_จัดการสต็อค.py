@@ -201,6 +201,25 @@ def main():
         try:
             categories = session.query(Category).all()
             
+            # Initialize barcode in session state
+            if 'add_product_barcode' not in st.session_state:
+                st.session_state.add_product_barcode = ""
+            
+            # Barcode Scanner Section
+            st.markdown("#### 📷 สแกนบาร์โค๊ด")
+            with st.expander("📷 ใช้กล้องสแกนบาร์โค๊ด", expanded=False):
+                try:
+                    from components.barcode_scanner_realtime import barcode_scanner_realtime
+                    scanned_barcode = barcode_scanner_realtime()
+                    
+                    if scanned_barcode:
+                        st.session_state.add_product_barcode = scanned_barcode
+                        st.success(f"✅ สแกนบาร์โค๊ดได้: {scanned_barcode}")
+                        st.rerun()
+                except Exception as e:
+                    st.warning(f"⚠️ ไม่สามารถใช้กล้องได้: {str(e)}")
+                    st.info("💡 กรุณาใช้เครื่องยิงบาร์โค๊ดหรือพิมพ์บาร์โค๊ดในช่องด้านล่าง")
+            
             with st.form("add_product_form"):
                 col1, col2 = st.columns(2)
                 
@@ -213,7 +232,19 @@ def main():
                         index=0
                     )
                     unit = st.text_input("หน่วย *", value="ชิ้น", placeholder="เช่น ชิ้น, กิโลกรัม, ลิตร")
-                    barcode = st.text_input("บาร์โค๊ด", placeholder="สแกนหรือพิมพ์บาร์โค๊ด", help="ใช้เครื่องยิงบาร์โค๊ดสแกนได้")
+                    
+                    # Barcode input with scanner support
+                    barcode = st.text_input(
+                        "บาร์โค๊ด", 
+                        value=st.session_state.add_product_barcode,
+                        placeholder="สแกนหรือพิมพ์บาร์โค๊ด", 
+                        help="ใช้เครื่องยิงบาร์โค๊ด, กล้องมือถือ, หรือพิมพ์บาร์โค๊ดได้",
+                        key="barcode_input_add_product"
+                    )
+                    # Update session state when user types
+                    if barcode != st.session_state.add_product_barcode:
+                        st.session_state.add_product_barcode = barcode
+                    
                     cost_price = st.number_input("ราคาต้นทุน *", min_value=0.0, value=0.0)
                 
                 with col2:
@@ -245,6 +276,8 @@ def main():
                                         session.commit()
                                         print(f"[DEBUG] เพิ่มสินค้าพร้อมบาร์โค๊ด - Product: {name}, Barcode: {barcode.strip()} - {datetime.now()}")
                                         st.success(f"✅ เพิ่มสินค้า {name} สำเร็จ")
+                                        # Clear barcode from session state
+                                        st.session_state.add_product_barcode = ""
                                         st.rerun()
                                 else:
                                     product = Product(
@@ -260,6 +293,8 @@ def main():
                                     session.add(product)
                                     session.commit()
                                     st.success(f"✅ เพิ่มสินค้า {name} สำเร็จ")
+                                    # Clear barcode from session state
+                                    st.session_state.add_product_barcode = ""
                                     st.rerun()
                             except Exception as e:
                                 session.rollback()
