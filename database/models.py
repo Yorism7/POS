@@ -586,7 +586,7 @@ class Table(Base):
     table_number = Column(String(20), nullable=False, unique=True, index=True)  # หมายเลขโต๊ะ เช่น "T1", "T2"
     name = Column(String(100), nullable=True)  # ชื่อโต๊ะ (ถ้ามี)
     capacity = Column(Integer, nullable=False, default=4)  # จำนวนที่นั่ง
-    qr_code = Column(String(500), nullable=True)  # QR Code URL สำหรับโต๊ะนี้
+    qr_code = Column(Text, nullable=True)  # QR Code base64 image สำหรับโต๊ะนี้ (ใช้ Text เพื่อรองรับข้อมูลยาว)
     is_active = Column(Boolean, default=True, nullable=False)  # เปิดใช้งานหรือไม่
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

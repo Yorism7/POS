@@ -466,6 +466,46 @@ def init_db():
     except Exception as e:
         print(f"Migration note: {e}")
     
+    # Migrate qr_code column from VARCHAR(500) to TEXT for tables table
+    try:
+        if is_postgresql:
+            with engine.connect() as conn:
+                # Check if qr_code column exists and is VARCHAR(500)
+                result = conn.execute(text("""
+                    SELECT data_type, character_maximum_length
+                    FROM information_schema.columns 
+                    WHERE table_name = 'tables' AND column_name = 'qr_code'
+                """))
+                row = result.fetchone()
+                if row and row[0] == 'character varying' and row[1] == 500:
+                    print("[INFO] Migrating qr_code column from VARCHAR(500) to TEXT...")
+                    with conn.begin():
+                        conn.execute(text("ALTER TABLE tables ALTER COLUMN qr_code TYPE TEXT"))
+                    print("[INFO] ✅ qr_code column migrated to TEXT")
+        elif is_sqlite:
+            # SQLite doesn't need migration - TEXT is already flexible
+            pass
+        elif is_mysql:
+            with engine.connect() as conn:
+                # Check if qr_code column exists and is VARCHAR(500)
+                result = conn.execute(text("""
+                    SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+                    FROM information_schema.columns 
+                    WHERE table_schema = DATABASE() 
+                    AND table_name = 'tables' 
+                    AND column_name = 'qr_code'
+                """))
+                row = result.fetchone()
+                if row and row[0] == 'varchar' and row[1] == 500:
+                    print("[INFO] Migrating qr_code column from VARCHAR(500) to TEXT...")
+                    with conn.begin():
+                        conn.execute(text("ALTER TABLE tables MODIFY COLUMN qr_code TEXT"))
+                    print("[INFO] ✅ qr_code column migrated to TEXT")
+    except Exception as e:
+        print(f"[WARNING] Error migrating qr_code column: {e}")
+        import traceback
+        traceback.print_exc()
+    
     # Create default data if needed
     session = get_session()
     try:
