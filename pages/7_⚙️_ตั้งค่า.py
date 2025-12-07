@@ -106,13 +106,12 @@ def main():
         
         with col3:
                     # Test connection
-            if st.button("🔍 ทดสอบการเชื่อมต่อ", use_container_width=True):
+            if st.button("🔍 ทดสอบการเชื่อมต่อ", width='stretch'):
                 with st.spinner("กำลังทดสอบการเชื่อมต่อ..."):
                     try:
                         session = get_session()
                         try:
                             # Try a simple query
-                            from database.models import Category
                             count = session.query(Category).count()
                             st.success(f"✅ เชื่อมต่อสำเร็จ! (พบ {count} หมวดหมู่)")
                         except Exception as e:
@@ -213,7 +212,7 @@ def main():
                 )
                 promptpay_phone = ""
             
-            if st.form_submit_button("💾 บันทึก", type="primary", use_container_width=True):
+            if st.form_submit_button("💾 บันทึก", type="primary", width='stretch'):
                 if store_name:
                     st.session_state.store_name = store_name
                     st.session_state.store_address = store_address
@@ -265,7 +264,7 @@ def main():
             receipt_show_tax = st.checkbox("แสดงภาษีมูลค่าเพิ่ม", value=st.session_state.receipt_show_tax)
             receipt_tax_rate = st.number_input("อัตราภาษี (%)", min_value=0.0, max_value=100.0, value=st.session_state.receipt_tax_rate, step=0.1)
             
-            if st.form_submit_button("💾 บันทึก", type="primary", use_container_width=True):
+            if st.form_submit_button("💾 บันทึก", type="primary", width='stretch'):
                 st.session_state.receipt_footer = receipt_footer
                 st.session_state.receipt_show_tax = receipt_show_tax
                 st.session_state.receipt_tax_rate = receipt_tax_rate
@@ -298,7 +297,7 @@ def main():
                         f.read(),
                         file_name=f"pos_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db",
                         mime="application/x-sqlite3",
-                        use_container_width=True
+                        width='stretch'
                     )
             else:
                 st.warning("⚠️ ไม่พบไฟล์ฐานข้อมูล")
@@ -315,7 +314,7 @@ def main():
             )
             
             if uploaded_file is not None:
-                if st.button("🔄 กู้คืนข้อมูล", type="primary", use_container_width=True):
+                if st.button("🔄 กู้คืนข้อมูล", type="primary", width='stretch'):
                     try:
                         # Backup current database
                         if os.path.exists(DB_PATH):
@@ -395,7 +394,7 @@ def main():
                     expense_date = st.date_input("วันที่ *", value=datetime.now().date(), key="expense_date_input")
                     expense_description = st.text_area("คำอธิบาย", placeholder="รายละเอียดค่าใช้จ่าย...", key="expense_desc_input")
                     
-                    if st.form_submit_button("➕ เพิ่มค่าใช้จ่าย", type="primary", use_container_width=True):
+                    if st.form_submit_button("➕ เพิ่มค่าใช้จ่าย", type="primary", width='stretch'):
                         if selected_category_id and expense_amount > 0:
                             session = get_session()
                             try:
@@ -445,7 +444,7 @@ def main():
                     })
                 
                 df = pd.DataFrame(expense_data)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, width='stretch', hide_index=True)
                 
                 # Total
                 total_expenses = sum(e.amount for e in expenses)
@@ -486,12 +485,12 @@ def main():
                     names='name',
                     title="ค่าใช้จ่ายตามหมวดหมู่"
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
                 
                 # Table
                 df_category['total'] = df_category['total'].apply(lambda x: format_currency(x))
                 df_category.columns = ['ID', 'หมวดหมู่', 'จำนวนเงิน']
-                st.dataframe(df_category[['หมวดหมู่', 'จำนวนเงิน']], use_container_width=True, hide_index=True)
+                st.dataframe(df_category[['หมวดหมู่', 'จำนวนเงิน']], width='stretch', hide_index=True)
             
             # Daily expenses chart
             st.divider()
@@ -513,7 +512,7 @@ def main():
                     title="ค่าใช้จ่ายรายวัน"
                 )
                 fig.update_layout(height=400, hovermode='x unified')
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             else:
                 st.info("ไม่มีข้อมูลค่าใช้จ่าย")
         
@@ -526,7 +525,7 @@ def main():
                     cat_name = st.text_input("ชื่อหมวดหมู่ *", placeholder="เช่น ค่าเช่า, ค่าไฟ, วัตถุดิบ...", key="new_category_name")
                     cat_description = st.text_area("คำอธิบาย", placeholder="รายละเอียดหมวดหมู่...", key="new_category_desc")
                     
-                    if st.form_submit_button("➕ เพิ่มหมวดหมู่", type="primary", use_container_width=True):
+                    if st.form_submit_button("➕ เพิ่มหมวดหมู่", type="primary", width='stretch'):
                         if cat_name:
                             result = create_expense_category(cat_name, cat_description if cat_description else None)
                             if result:
@@ -550,7 +549,7 @@ def main():
                             st.write(f"**คำอธิบาย:** {cat.description or '-'}")
                             st.write(f"**สถานะ:** {'เปิดใช้งาน' if cat.is_active else 'ปิดใช้งาน'}")
                         with col2:
-                            if st.button("🗑️ ลบ", key=f"delete_category_{cat.id}", use_container_width=True):
+                            if st.button("🗑️ ลบ", key=f"delete_category_{cat.id}", width='stretch'):
                                 session = get_session()
                                 try:
                                     # Check if category has expenses
@@ -571,7 +570,7 @@ def main():
                 st.info("ยังไม่มีหมวดหมู่ค่าใช้จ่าย")
                 
                 # Create default categories
-                if st.button("➕ สร้างหมวดหมู่เริ่มต้น", use_container_width=True):
+                if st.button("➕ สร้างหมวดหมู่เริ่มต้น", width='stretch'):
                     default_categories = [
                         ("ค่าเช่า", "ค่าเช่าร้าน"),
                         ("ค่าไฟ", "ค่าไฟฟ้า"),
@@ -651,7 +650,7 @@ def main():
                 with col_end:
                     valid_until = st.date_input("วันที่สิ้นสุด", value=datetime.now().date() + timedelta(days=30), key="promo_valid_until")
                 
-                if st.form_submit_button("➕ เพิ่มโปรโมชั่น", type="primary", use_container_width=True):
+                if st.form_submit_button("➕ เพิ่มโปรโมชั่น", type="primary", width='stretch'):
                     if promo_name:
                         session = get_session()
                         try:
@@ -706,19 +705,19 @@ def main():
                             st.write(f"**วันที่สิ้นสุด:** {promo.valid_until.strftime('%d/%m/%Y')}")
                         with col2:
                             if promo.is_active:
-                                if st.button("❌ ปิดใช้งาน", key=f"deactivate_promo_{promo.id}", use_container_width=True):
+                                if st.button("❌ ปิดใช้งาน", key=f"deactivate_promo_{promo.id}", width='stretch'):
                                     promo.is_active = False
                                     session.commit()
                                     st.success("✅ ปิดใช้งานโปรโมชั่นสำเร็จ")
                                     st.rerun()
                             else:
-                                if st.button("✅ เปิดใช้งาน", key=f"activate_promo_{promo.id}", use_container_width=True):
+                                if st.button("✅ เปิดใช้งาน", key=f"activate_promo_{promo.id}", width='stretch'):
                                     promo.is_active = True
                                     session.commit()
                                     st.success("✅ เปิดใช้งานโปรโมชั่นสำเร็จ")
                                     st.rerun()
                             
-                            if st.button("🗑️ ลบ", key=f"delete_promo_{promo.id}", use_container_width=True):
+                            if st.button("🗑️ ลบ", key=f"delete_promo_{promo.id}", width='stretch'):
                                 session.delete(promo)
                                 session.commit()
                                 st.success("✅ ลบโปรโมชั่นสำเร็จ")
@@ -766,29 +765,34 @@ def main():
         st.divider()
         
         # ตรวจสอบข้อมูลที่มีอยู่แล้ว
-        db_session = get_session()
         try:
-            existing_products = db_session.query(Product).count()
-            existing_menus = db_session.query(Menu).count()
-            existing_categories = db_session.query(Category).count()
-            
-            st.markdown("#### 📊 ข้อมูลปัจจุบัน")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("หมวดหมู่", existing_categories)
-            with col2:
-                st.metric("สินค้า", existing_products)
-            with col3:
-                st.metric("เมนู", existing_menus)
-        finally:
-            db_session.close()
+            mockup_session = get_session()
+            try:
+                # Use fully qualified names to avoid scope issues
+                from database.models import Category, Product, Menu
+                existing_products = mockup_session.query(Product).count()
+                existing_menus = mockup_session.query(Menu).count()
+                existing_categories = mockup_session.query(Category).count()
+                
+                st.markdown("#### 📊 ข้อมูลปัจจุบัน")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("หมวดหมู่", existing_categories)
+                with col2:
+                    st.metric("สินค้า", existing_products)
+                with col3:
+                    st.metric("เมนู", existing_menus)
+            finally:
+                mockup_session.close()
+        except Exception as e:
+            st.warning(f"⚠️ ไม่สามารถตรวจสอบข้อมูลได้: {str(e)}")
         
         st.divider()
         
         # ปุ่มสร้างข้อมูล Mockup
         st.markdown("#### 🚀 สร้างข้อมูล Mockup")
         
-        if st.button("✨ สร้างข้อมูล Mockup", type="primary", use_container_width=True):
+        if st.button("✨ สร้างข้อมูล Mockup", type="primary", width='stretch'):
             with st.spinner("🔄 กำลังสร้างข้อมูล Mockup... กรุณารอสักครู่"):
                 try:
                     # Import และเรียกใช้ฟังก์ชันสร้างข้อมูล
@@ -841,7 +845,7 @@ def main():
         st.markdown("#### 🗑️ ลบข้อมูล Mockup")
         st.warning("⚠️ การลบข้อมูล Mockup จะลบสินค้าและเมนูทั้งหมด (ยกเว้นข้อมูลที่มีการใช้งาน)")
         
-        if st.button("🗑️ ลบข้อมูล Mockup", type="secondary", use_container_width=True):
+        if st.button("🗑️ ลบข้อมูล Mockup", type="secondary", width='stretch'):
             if st.session_state.get('confirm_delete_mockup', False):
                 with st.spinner("🔄 กำลังลบข้อมูล Mockup..."):
                     try:
