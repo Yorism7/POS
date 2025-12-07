@@ -1,6 +1,8 @@
 """
 Script สำหรับสร้างข้อมูล Mockup สำหรับระบบ POS
 รวมสินค้า, เมนูอาหาร, และข้อมูลอื่นๆ
+
+รองรับทั้ง SQLite (local) และ PostgreSQL/MySQL (Supabase)
 """
 
 import sys
@@ -12,36 +14,113 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.db import get_session, init_db, hash_password, DB_PATH
 from database.models import Category, Product, Menu, MenuItem, User
-import sqlite3
+import toml
 
-def migrate_add_barcode():
-    """Add barcode column to products table if not exists"""
-    if not os.path.exists(DB_PATH):
-        return
+def get_database_url_for_script():
+    """
+    Get database URL for script (outside Streamlit context)
+    Priority:
+    1. Environment variables (DATABASE_URL)
+    2. Streamlit secrets file (.streamlit/secrets.toml)
+    3. Default to SQLite (local development)
+    """
+    # Try environment variables first
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        print(f"[DEBUG] ✅ ใช้ DATABASE_URL จาก environment variable")
+        return database_url
     
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        # Check if column exists
-        cursor.execute("PRAGMA table_info(products)")
-        columns = [column[1] for column in cursor.fetchall()]
-        
-        if 'barcode' not in columns:
-            print("🔄 กำลังเพิ่มคอลัมน์ barcode...")
-            cursor.execute("ALTER TABLE products ADD COLUMN barcode VARCHAR(100)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_barcode ON products(barcode)")
-            conn.commit()
-            print("✅ เพิ่มคอลัมน์ barcode สำเร็จ")
-        conn.close()
-    except Exception as e:
-        print(f"⚠️ ไม่สามารถเพิ่มคอลัมน์ barcode: {str(e)}")
+    # Try reading from .streamlit/secrets.toml
+    secrets_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.streamlit', 'secrets.toml')
+    if os.path.exists(secrets_path):
+        try:
+            secrets = toml.load(secrets_path)
+            if 'database' in secrets:
+                db_config = secrets['database']
+                db_type = db_config.get('type', 'sqlite').lower()
+                
+                if db_type == 'postgresql':
+                    user = db_config.get('user')
+                    password = db_config.get('password')
+                    host = db_config.get('host')
+                    port = db_config.get('port', 5432)
+                    database = db_config.get('database')
+                    
+                    if all([user, password, host, database]):
+                        database_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+                        print(f"[DEBUG] ✅ อ่าน database config จาก .streamlit/secrets.toml (PostgreSQL)")
+                        return database_url
+                elif db_type == 'mysql':
+                    user = db_config.get('user')
+                    password = db_config.get('password')
+                    host = db_config.get('host')
+                    port = db_config.get('port', 3306)
+                    database = db_config.get('database')
+                    
+                    if all([user, password, host, database]):
+                        database_url = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+                        print(f"[DEBUG] ✅ อ่าน database config จาก .streamlit/secrets.toml (MySQL)")
+                        return database_url
+                elif db_type == 'sqlite':
+                    db_path = db_config.get('path', 'data/pos.db')
+                    database_url = f"sqlite:///{db_path}"
+                    print(f"[DEBUG] ✅ อ่าน database config จาก .streamlit/secrets.toml (SQLite)")
+                    return database_url
+        except Exception as e:
+            print(f"[DEBUG] ⚠️ ไม่สามารถอ่าน secrets.toml: {e}")
+    
+    # Default to SQLite (local development)
+    if os.path.exists("/data"):
+        DB_DIR = "/data"
+        os.makedirs(DB_DIR, exist_ok=True)
+    elif os.path.exists("/tmp"):
+        DB_DIR = "/tmp"
+    else:
+        DB_DIR = "data"
+        os.makedirs(DB_DIR, exist_ok=True)
+    
+    DB_PATH = os.path.join(DB_DIR, "pos.db")
+    database_url = f"sqlite:///{DB_PATH}"
+    print(f"[DEBUG] ⚠️ ไม่พบ database config, ใช้ SQLite: {database_url}")
+    return database_url
+
+def check_database_type():
+    """ตรวจสอบประเภท database ที่ใช้"""
+    database_url = get_database_url_for_script()
+    if database_url.startswith('postgresql://'):
+        return 'postgresql'
+    elif database_url.startswith('mysql://') or database_url.startswith('mysql+pymysql://'):
+        return 'mysql'
+    else:
+        return 'sqlite'
+
+def check_database_type():
+    """ตรวจสอบประเภท database ที่ใช้"""
+    database_url = get_database_url_for_script()
+    if database_url.startswith('postgresql://'):
+        return 'postgresql'
+    elif database_url.startswith('mysql://') or database_url.startswith('mysql+pymysql://'):
+        return 'mysql'
+    else:
+        return 'sqlite'
 
 def create_mockup_data():
-    """Create mockup data for POS system"""
+    """
+    Create mockup data for POS system
+    Returns: dict with counts of created items
+    """
     session = get_session()
     
     try:
+        result = {
+            'categories': 0,
+            'products': 0,
+            'menus': 0,
+            'menu_items': 0,
+            'success': False,
+            'error': None
+        }
+        
         print("🚀 เริ่มสร้างข้อมูล Mockup...")
         
         # Get or create categories
@@ -54,6 +133,7 @@ def create_mockup_data():
                 category = Category(name=cat_name, description=f"หมวดหมู่{cat_name}")
                 session.add(category)
                 session.flush()
+                result['categories'] += 1
             categories[cat_name] = category
         
         session.commit()
@@ -122,6 +202,7 @@ def create_mockup_data():
                 created_products[prod_data["name"]] = existing
         
         session.commit()
+        result['products'] = len(created_products)
         print(f"✅ สร้างสินค้า {len(created_products)} รายการสำเร็จ")
         
         # เมนูอาหาร (20 เมนู)
@@ -410,6 +491,7 @@ def create_mockup_data():
                 session.flush()
                 
                 # สร้าง BOM (Bill of Materials)
+                menu_items_count = 0
                 for bom_item in menu_data["bom"]:
                     product = created_products.get(bom_item["product"])
                     if product:
@@ -419,12 +501,15 @@ def create_mockup_data():
                             quantity=bom_item["quantity"]
                         )
                         session.add(menu_item)
+                        menu_items_count += 1
                 
+                result['menu_items'] += menu_items_count
                 created_menus[menu_data["name"]] = menu
             else:
                 created_menus[menu_data["name"]] = existing
         
         session.commit()
+        result['menus'] = len(created_menus)
         print(f"✅ สร้างเมนู {len(created_menus)} รายการสำเร็จ")
         
         print("\n" + "="*50)
@@ -435,21 +520,60 @@ def create_mockup_data():
         print(f"📊 รวมทั้งหมด: {len(created_products) + len(created_menus)} รายการ")
         print("="*50)
         
+        result['success'] = True
+        return result
+        
     except Exception as e:
         session.rollback()
-        print(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+        error_msg = f"❌ เกิดข้อผิดพลาด: {str(e)}"
+        print(error_msg)
         import traceback
         traceback.print_exc()
+        result['error'] = str(e)
+        result['success'] = False
+        return result
     finally:
         session.close()
 
 if __name__ == "__main__":
-    # Initialize database
-    init_db()
+    print("="*60)
+    print("🚀 สร้างข้อมูล Mockup สำหรับระบบ POS")
+    print("="*60)
     
-    # Migrate if needed
-    migrate_add_barcode()
+    # ตรวจสอบประเภท database
+    db_type = check_database_type()
+    print(f"📊 ตรวจพบ Database: {db_type.upper()}")
+    if db_type == 'postgresql':
+        print("✅ กำลังเชื่อมต่อ Supabase PostgreSQL...")
+    elif db_type == 'mysql':
+        print("✅ กำลังเชื่อมต่อ MySQL...")
+    else:
+        print(f"✅ กำลังใช้ SQLite: {DB_PATH}")
+    print()
+    
+    # Initialize database
+    print("🔄 กำลังสร้างตาราง...")
+    init_db()
+    print("✅ สร้างตารางสำเร็จ")
+    print()
     
     # Create mockup data
     create_mockup_data()
+    
+    print()
+    print("="*60)
+    print("🎉 เสร็จสิ้น! ข้อมูล Mockup ถูกสร้างเรียบร้อยแล้ว")
+    print("="*60)
+    print()
+    print("📝 ข้อมูลที่สร้าง:")
+    print("   - หมวดหมู่: 4 หมวด")
+    print("   - สินค้า: 30 รายการ (อาหารแห้ง, เครื่องดื่ม, วัตถุดิบ)")
+    print("   - เมนูก๋วยเตี๋ยว: 20 เมนู พร้อม BOM")
+    print()
+    print("💡 ตรวจสอบข้อมูลได้ที่:")
+    if db_type == 'postgresql':
+        print("   - Supabase Dashboard > Table Editor")
+    else:
+        print(f"   - Database file: {DB_PATH}")
+    print("="*60)
 
