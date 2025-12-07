@@ -241,8 +241,67 @@ else:
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+def ensure_barcode_image_path_column():
+    """Ensure barcode_image_path column exists in products table (called on-demand)"""
+    try:
+        if is_postgresql:
+            with engine.begin() as conn:
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'products' AND column_name = 'barcode_image_path'
+                """))
+                columns = [row[0] for row in result]
+                if 'barcode_image_path' not in columns:
+                    print("[INFO] ⚠️ barcode_image_path column missing - adding now...")
+                    conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path VARCHAR(500)"))
+                    print("[INFO] ✅ barcode_image_path column added successfully")
+                    # Invalidate SQLAlchemy metadata cache
+                    from sqlalchemy import inspect
+                    try:
+                        inspect(engine).clear_cache()
+                    except:
+                        pass
+                else:
+                    print("[DEBUG] ✅ barcode_image_path column already exists")
+        elif is_mysql:
+            with engine.begin() as conn:
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_schema = DATABASE() 
+                    AND table_name = 'products' 
+                    AND column_name = 'barcode_image_path'
+                """))
+                columns = [row[0] for row in result]
+                if 'barcode_image_path' not in columns:
+                    print("[INFO] ⚠️ barcode_image_path column missing - adding now...")
+                    conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path VARCHAR(500)"))
+                    print("[INFO] ✅ barcode_image_path column added successfully")
+                else:
+                    print("[DEBUG] ✅ barcode_image_path column already exists")
+        else:  # SQLite
+            conn = engine.connect()
+            result = conn.execute(text("PRAGMA table_info(products)"))
+            columns = [row[1] for row in result]
+            if 'barcode_image_path' not in columns:
+                print("[INFO] ⚠️ barcode_image_path column missing - adding now...")
+                conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path TEXT"))
+                conn.commit()
+                print("[INFO] ✅ barcode_image_path column added successfully")
+            else:
+                print("[DEBUG] ✅ barcode_image_path column already exists")
+            conn.close()
+    except Exception as e:
+        print(f"[ERROR] ❌ Error ensuring barcode_image_path column: {e}")
+        import traceback
+        traceback.print_exc()
+        # Don't raise - let the app continue, but log the error clearly
+
 def get_session() -> Session:
     """Get database session"""
+    # Ensure barcode_image_path column exists before creating session
+    ensure_barcode_image_path_column()
     return SessionLocal()
 
 def init_db():
@@ -508,45 +567,54 @@ def init_db():
     
     # Add barcode_image_path column to products table if it doesn't exist
     try:
-        conn = engine.connect()
-        if is_sqlite:
+        print("[INFO] Checking for barcode_image_path column in products table...")
+        if is_postgresql:
+            with engine.begin() as conn:  # Use begin() for auto-commit
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'products' AND column_name = 'barcode_image_path'
+                """))
+                columns = [row[0] for row in result]
+                if 'barcode_image_path' not in columns:
+                    print("[INFO] Adding barcode_image_path column to products table...")
+                    conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path VARCHAR(500)"))
+                    print("[INFO] ✅ barcode_image_path column added")
+                else:
+                    print("[INFO] ✅ barcode_image_path column already exists")
+        elif is_mysql:
+            with engine.begin() as conn:  # Use begin() for auto-commit
+                result = conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_schema = DATABASE() 
+                    AND table_name = 'products' 
+                    AND column_name = 'barcode_image_path'
+                """))
+                columns = [row[0] for row in result]
+                if 'barcode_image_path' not in columns:
+                    print("[INFO] Adding barcode_image_path column to products table...")
+                    conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path VARCHAR(500)"))
+                    print("[INFO] ✅ barcode_image_path column added")
+                else:
+                    print("[INFO] ✅ barcode_image_path column already exists")
+        else:  # SQLite
+            conn = engine.connect()
             result = conn.execute(text("PRAGMA table_info(products)"))
             columns = [row[1] for row in result]
-        elif is_postgresql:
-            result = conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'products' AND column_name = 'barcode_image_path'
-            """))
-            columns = [row[0] for row in result] if result.rowcount > 0 else []
-        elif is_mysql:
-            result = conn.execute(text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_schema = DATABASE() 
-                AND table_name = 'products' 
-                AND column_name = 'barcode_image_path'
-            """))
-            columns = [row[0] for row in result] if result.rowcount > 0 else []
-        else:
-            columns = []
-        
-        if 'barcode_image_path' not in columns:
-            print("[INFO] Adding barcode_image_path column to products table...")
-            if is_postgresql:
-                with conn.begin():
-                    conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path VARCHAR(500)"))
-            elif is_mysql:
-                with conn.begin():
-                    conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path VARCHAR(500)"))
-            else:  # SQLite
+            if 'barcode_image_path' not in columns:
+                print("[INFO] Adding barcode_image_path column to products table...")
                 conn.execute(text("ALTER TABLE products ADD COLUMN barcode_image_path TEXT"))
-            print("[INFO] ✅ barcode_image_path column added")
-        conn.close()
+                conn.commit()
+                print("[INFO] ✅ barcode_image_path column added")
+            else:
+                print("[INFO] ✅ barcode_image_path column already exists")
+            conn.close()
     except Exception as e:
-        print(f"[WARNING] Error adding barcode_image_path column: {e}")
+        print(f"[ERROR] Error adding barcode_image_path column: {e}")
         import traceback
         traceback.print_exc()
+        # Don't raise - let the app continue, but log the error
     
     # Create default data if needed
     session = get_session()

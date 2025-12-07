@@ -17,6 +17,7 @@ from utils.receipt import generate_receipt_text, generate_receipt_pdf
 from utils.validators import validate_stock_availability
 from utils.sound import play_beep_sound
 from utils.store_settings import get_promptpay_settings
+from utils.image_upload import image_uploader_widget, delete_image
 import json
 
 st.set_page_config(page_title="POS - ขายของ", page_icon="💰", layout="wide")
@@ -188,6 +189,10 @@ def main():
                 st.session_state['last_barcode'] = barcode_input.strip()
         
         if barcode_to_search:
+            # Ensure barcode_image_path column exists before querying
+            from database.db import ensure_barcode_image_path_column
+            ensure_barcode_image_path_column()
+            
             session = get_session()
             try:
                 product = session.query(Product).filter(
@@ -220,6 +225,10 @@ def main():
         tab1, tab2 = st.tabs(["📦 สินค้า", "🍜 เมนู"])
         
         with tab1:
+            # Ensure barcode_image_path column exists before querying
+            from database.db import ensure_barcode_image_path_column
+            ensure_barcode_image_path_column()
+            
             session = get_session()
             try:
                 products = session.query(Product).filter(
@@ -249,6 +258,52 @@ def main():
                                 st.write(f"**{product.name}**")
                                 st.caption(f"สต็อค: {product.stock_quantity:.2f} {product.unit}")
                                 st.write(f"ราคา: {format_currency(product.selling_price)}")
+                                
+                                # แสดงภาพบาร์โค๊ดถ้ามี
+                                if product.barcode_image_path:
+                                    try:
+                                        if product.barcode_image_path.startswith(('http://', 'https://')):
+                                            st.image(product.barcode_image_path, caption="📷 ภาพบาร์โค๊ด", width=150)
+                                        elif os.path.exists(product.barcode_image_path):
+                                            st.image(product.barcode_image_path, caption="📷 ภาพบาร์โค๊ด", width=150)
+                                    except:
+                                        pass
+                                
+                                # ปุ่มอัพโหลดภาพบาร์โค๊ด
+                                with st.expander("📷 อัพโหลดภาพบาร์โค๊ด", expanded=False):
+                                    uploaded_barcode_image_path = image_uploader_widget(
+                                        "อัพโหลดภาพบาร์โค๊ด",
+                                        key=f"pos_barcode_image_upload_{product.id}",
+                                        image_type="barcode",
+                                        help_text="รองรับไฟล์: JPG, PNG, WebP"
+                                    )
+                                    barcode_image_url = st.text_input(
+                                        "หรือใส่ URL ภาพบาร์โค๊ด",
+                                        value=product.barcode_image_path if product.barcode_image_path and product.barcode_image_path.startswith(('http://', 'https://')) else "",
+                                        placeholder="https://example.com/barcode.jpg",
+                                        key=f"pos_barcode_image_url_{product.id}"
+                                    )
+                                    
+                                    if st.button("💾 บันทึกภาพบาร์โค๊ด", key=f"save_barcode_image_{product.id}"):
+                                        try:
+                                            new_barcode_image_path = product.barcode_image_path
+                                            if uploaded_barcode_image_path:
+                                                # ลบภาพเก่าถ้ามี
+                                                if product.barcode_image_path and not product.barcode_image_path.startswith(('http://', 'https://')):
+                                                    delete_image(product.barcode_image_path)
+                                                new_barcode_image_path = uploaded_barcode_image_path
+                                            elif barcode_image_url and barcode_image_url.strip():
+                                                # ลบภาพเก่าถ้ามี
+                                                if product.barcode_image_path and not product.barcode_image_path.startswith(('http://', 'https://')):
+                                                    delete_image(product.barcode_image_path)
+                                                new_barcode_image_path = barcode_image_url.strip()
+                                            
+                                            product.barcode_image_path = new_barcode_image_path
+                                            session.commit()
+                                            st.success("✅ บันทึกภาพบาร์โค๊ดสำเร็จ")
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                 
                                 col_qty, col_add = st.columns([1, 1])
                                 with col_qty:
