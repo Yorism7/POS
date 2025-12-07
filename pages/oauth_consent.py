@@ -48,7 +48,22 @@ def main():
     st.title("🔐 Authorization Request")
     
     # Get OAuth parameters from query string
-    query_params = st.experimental_get_query_params()
+    # Try new API first, fallback to experimental
+    try:
+        if hasattr(st, 'query_params'):
+            query_params = st.query_params
+            # Convert to dict format for compatibility
+            query_dict = {}
+            for key, value in query_params.items():
+                if isinstance(value, list):
+                    query_dict[key] = value
+                else:
+                    query_dict[key] = [value]
+            query_params = query_dict
+        else:
+            query_params = st.experimental_get_query_params()
+    except:
+        query_params = st.experimental_get_query_params()
     
     # Debug: Show all query parameters
     with st.expander("🔍 Debug: Query Parameters"):
@@ -103,10 +118,33 @@ def main():
             
             if st.form_submit_button("🔗 สร้าง Authorization URL", type="primary", use_container_width=True):
                 if test_client_id and test_redirect_uri:
-                    auth_url = f"/oauth/consent?client_id={test_client_id}&redirect_uri={test_redirect_uri}&response_type=code&scope={test_scope}&state={test_state}"
+                    # Store in session state for redirect
+                    st.session_state['test_oauth_params'] = {
+                        'client_id': test_client_id,
+                        'redirect_uri': test_redirect_uri,
+                        'scope': test_scope,
+                        'state': test_state,
+                        'response_type': 'code'
+                    }
+                    
+                    # Build query string
+                    import urllib.parse
+                    params = {
+                        'client_id': test_client_id,
+                        'redirect_uri': test_redirect_uri,
+                        'response_type': 'code',
+                        'scope': test_scope,
+                        'state': test_state
+                    }
+                    query_string = urllib.parse.urlencode(params)
+                    auth_url = f"/oauth/consent?{query_string}"
+                    
                     st.success("✅ สร้าง URL สำเร็จ!")
                     st.code(auth_url, language=None)
-                    st.markdown(f'<a href="{auth_url}" target="_blank">🔗 เปิด Authorization URL</a>', unsafe_allow_html=True)
+                    
+                    # Use st.query_params to set parameters and reload
+                    st.experimental_set_query_params(**params)
+                    st.rerun()
                 else:
                     st.warning("⚠️ กรุณากรอก Client ID และ Redirect URI")
         
