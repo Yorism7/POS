@@ -116,13 +116,13 @@ def main():
         if total_pages > 1:
             col_prev, col_page, col_next = st.columns([1, 3, 1])
             with col_prev:
-                if st.button("◀️ ก่อนหน้า", disabled=(current_page == 1), use_container_width=True, key="void_prev"):
+                if st.button("◀️ ก่อนหน้า", disabled=(current_page == 1), width='stretch', key="void_prev"):
                     st.session_state.void_sale_page = max(1, current_page - 1)
                     st.rerun()
             with col_page:
                 st.write(f"หน้า {current_page} / {total_pages}")
             with col_next:
-                if st.button("ถัดไป ▶️", disabled=(current_page == total_pages), use_container_width=True, key="void_next"):
+                if st.button("ถัดไป ▶️", disabled=(current_page == total_pages), width='stretch', key="void_next"):
                     st.session_state.void_sale_page = min(total_pages, current_page + 1)
                     st.rerun()
         
@@ -152,7 +152,7 @@ def main():
                     
                     with col3:
                         if not sale.is_void:
-                            if st.button("🔄 ยกเลิกการขาย", key=f"void_{sale.id}", use_container_width=True):
+                            if st.button("🔄 ยกเลิกการขาย", key=f"void_{sale.id}", width='stretch'):
                                 st.session_state[f"voiding_sale_{sale.id}"] = True
                                 st.rerun()
                             
@@ -172,7 +172,7 @@ def main():
                                 
                                 col_yes, col_no = st.columns(2)
                                 with col_yes:
-                                    if st.button("✅ ยืนยัน", key=f"yes_void_{sale.id}", use_container_width=True):
+                                    if st.button("✅ ยืนยัน", key=f"yes_void_{sale.id}", width='stretch'):
                                         if reason:
                                             with st.spinner("⏳ กำลังยกเลิกการขาย..."):
                                                 success, message = void_sale(sale.id, reason, st.session_state.user_id)
@@ -186,7 +186,7 @@ def main():
                                         else:
                                             st.warning("⚠️ กรุณากรอกเหตุผล")
                                 with col_no:
-                                    if st.button("❌ ยกเลิก", key=f"no_void_{sale.id}", use_container_width=True):
+                                    if st.button("❌ ยกเลิก", key=f"no_void_{sale.id}", width='stretch'):
                                         st.session_state[f"voiding_sale_{sale.id}"] = False
                                         st.rerun()
                     
@@ -210,7 +210,7 @@ def main():
                         })
                     
                     df_items = pd.DataFrame(items_data)
-                    st.dataframe(df_items, use_container_width=True, hide_index=True)
+                    st.dataframe(df_items, width='stretch', hide_index=True)
         else:
             st.info("ไม่พบการขาย")
     finally:

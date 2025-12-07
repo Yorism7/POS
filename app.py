@@ -184,7 +184,7 @@ def login_page():
         username = st.text_input("ชื่อผู้ใช้", value=saved_username)
         password = st.text_input("รหัสผ่าน", type="password")
         remember_me = st.checkbox("💾 จดจำการล็อคอิน", value=st.session_state.get('remember_me', False))
-        submit = st.form_submit_button("เข้าสู่ระบบ", use_container_width=True)
+        submit = st.form_submit_button("เข้าสู่ระบบ", width='stretch')
         
         if submit:
             if username and password:
@@ -255,7 +255,7 @@ def main():
         st.title(f"👤 {st.session_state.username}")
         st.caption(f"บทบาท: {st.session_state.role}")
         
-        if st.button("🚪 ออกจากระบบ", use_container_width=True):
+        if st.button("🚪 ออกจากระบบ", width='stretch'):
             # Clear persistent login if exists
             if 'remember_token' in st.session_state:
                 from utils.persistent_login import clear_saved_login

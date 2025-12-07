@@ -47,7 +47,7 @@ def barcode_scanner_component():
         
         if image is not None:
             # Display the image
-            st.image(image, caption="ภาพที่ถ่าย - กรุณาดูบาร์โค๊ดจากภาพ", use_container_width=True)
+            st.image(image, caption="ภาพที่ถ่าย - กรุณาดูบาร์โค๊ดจากภาพ", width='stretch')
             st.info("💡 **ดูบาร์โค๊ดจากภาพด้านบน แล้วพิมพ์ตัวเลข/ตัวอักษรในช่องด้านล่าง**")
             
             # Manual input
@@ -106,7 +106,7 @@ def barcode_scanner_component():
                     st.success(f"✅ พบบาร์โค๊ด: {barcode_data} (ประเภท: {barcode_type})")
                     
                     # Display image with barcode highlighted
-                    st.image(image, caption=f"บาร์โค๊ดที่สแกน: {barcode_data}", use_container_width=True)
+                    st.image(image, caption=f"บาร์โค๊ดที่สแกน: {barcode_data}", width='stretch')
                     
                     # Auto-add to search
                     return barcode_data

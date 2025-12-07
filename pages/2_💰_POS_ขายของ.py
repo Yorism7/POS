@@ -171,7 +171,7 @@ def main():
                     help="ใช้เครื่องยิงบาร์โค๊ดสแกน หรือพิมพ์บาร์โค๊ดแล้วกด Enter"
                 )
             with col_barcode_btn:
-                if st.button("🔍 ค้นหา", key="search_barcode", use_container_width=True):
+                if st.button("🔍 ค้นหา", key="search_barcode", width='stretch'):
                     if barcode_input:
                         st.session_state['barcode_search'] = barcode_input.strip()
                         st.rerun()
@@ -246,7 +246,7 @@ def main():
                                         label_visibility="collapsed"
                                     )
                                 with col_add:
-                                    if st.button("➕ เพิ่ม", key=f"add_product_{product.id}", use_container_width=True):
+                                    if st.button("➕ เพิ่ม", key=f"add_product_{product.id}", width='stretch'):
                                         # Validate stock availability
                                         is_valid, error_msg, available_stock = validate_stock_availability(product.id, qty)
                                         if is_valid:
@@ -288,7 +288,7 @@ def main():
                                         label_visibility="collapsed"
                                     )
                                 with col_add:
-                                    if st.button("➕ เพิ่ม", key=f"add_menu_{menu.id}", use_container_width=True):
+                                    if st.button("➕ เพิ่ม", key=f"add_menu_{menu.id}", width='stretch'):
                                         add_to_cart('menu', menu.id, menu.name, menu.price, float(qty))
                                         st.success(f"✅ เพิ่ม {menu.name} จำนวน {qty} ลงตะกร้า")
                                         st.rerun()
@@ -359,7 +359,7 @@ def main():
                         
                         col_create, col_cancel = st.columns(2)
                         with col_create:
-                            if st.form_submit_button("✅ สร้าง", use_container_width=True):
+                            if st.form_submit_button("✅ สร้าง", width='stretch'):
                                 if new_customer_name:
                                     customer = get_or_create_customer(
                                         phone=new_customer_phone if new_customer_phone else None,
@@ -374,7 +374,7 @@ def main():
                                         st.success(f"✅ สร้างลูกค้า {customer.name} สำเร็จ")
                                         st.rerun()
                         with col_cancel:
-                            if st.form_submit_button("❌ ยกเลิก", use_container_width=True):
+                            if st.form_submit_button("❌ ยกเลิก", width='stretch'):
                                 st.session_state['create_customer'] = False
                                 st.rerun()
             
@@ -552,7 +552,7 @@ def main():
             
             col_pay, col_clear = st.columns(2)
             with col_pay:
-                if st.button("✅ ชำระเงิน", type="primary", use_container_width=True, disabled=(payment_method == "💰 เงินสด" and change < 0)):
+                if st.button("✅ ชำระเงิน", type="primary", width='stretch', disabled=(payment_method == "💰 เงินสด" and change < 0)):
                     # Process payment with loading state
                     with st.spinner("⏳ กำลังประมวลผลการชำระเงิน..."):
                         session = get_session()
@@ -655,7 +655,7 @@ def main():
                                             f.read(),
                                             file_name=f"receipt_{sale.id:06d}.pdf",
                                             mime="application/pdf",
-                                            use_container_width=True
+                                            width='stretch'
                                         )
                                 except Exception as e:
                                     st.error(f"❌ ไม่สามารถสร้าง PDF: {str(e)}")
@@ -666,7 +666,7 @@ def main():
                                     receipt_text,
                                     file_name=f"receipt_{sale.id:06d}.txt",
                                     mime="text/plain",
-                                    use_container_width=True
+                                    width='stretch'
                                 )
                             
                             # Clear cart and discount
@@ -685,7 +685,7 @@ def main():
                             session.close()
             
             with col_clear:
-                if st.button("🗑️ ล้างตะกร้า", use_container_width=True):
+                if st.button("🗑️ ล้างตะกร้า", width='stretch'):
                     clear_cart()
                     st.rerun()
         else:

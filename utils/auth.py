@@ -104,7 +104,7 @@ def show_login_page():
         username = st.text_input("ชื่อผู้ใช้", value=saved_username)
         password = st.text_input("รหัสผ่าน", type="password")
         remember_me = st.checkbox("💾 จดจำการล็อคอิน", value=st.session_state.get('remember_me', False))
-        submit = st.form_submit_button("เข้าสู่ระบบ", type="primary", use_container_width=True)
+        submit = st.form_submit_button("เข้าสู่ระบบ", type="primary", width='stretch')
         
         if submit:
             if username and password:

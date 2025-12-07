@@ -190,7 +190,7 @@ def main():
                             
                             reason = st.text_input("เหตุผลในการคืน *", placeholder="เช่น สินค้าชำรุด, ลูกค้าต้องการคืน")
                             
-                            if st.button("↩️ คืนสินค้า", type="primary", use_container_width=True):
+                            if st.button("↩️ คืนสินค้า", type="primary", width='stretch'):
                                 if reason:
                                     with st.spinner("⏳ กำลังประมวลผลการคืนสินค้า..."):
                                         success, message = process_return(sale.id, return_items, reason, st.session_state.user_id)

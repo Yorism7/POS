@@ -121,7 +121,7 @@ def main():
             test_scope = st.text_input("Scope", value="read")
             test_state = st.text_input("State (optional)", value="test-state-123")
             
-            if st.form_submit_button("🔗 สร้าง Authorization URL", type="primary", use_container_width=True):
+            if st.form_submit_button("🔗 สร้าง Authorization URL", type="primary", width='stretch'):
                 if test_client_id and test_redirect_uri:
                     # Build query string
                     import urllib.parse
@@ -210,7 +210,7 @@ def main():
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("✅ อนุญาต", type="primary", use_container_width=True):
+        if st.button("✅ อนุญาต", type="primary", width='stretch'):
             # Generate authorization code
             code = generate_authorization_code(client_id, user.id, redirect_uri)
             
@@ -224,7 +224,7 @@ def main():
             st.info(f"🔄 Redirecting to: {redirect_uri}")
     
     with col2:
-        if st.button("❌ ปฏิเสธ", use_container_width=True):
+        if st.button("❌ ปฏิเสธ", width='stretch'):
             # Build error redirect URL
             error_url = f"{redirect_uri}?error=access_denied"
             if state:

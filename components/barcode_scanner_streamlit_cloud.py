@@ -27,7 +27,7 @@ def barcode_scanner_component():
     
     if image is not None:
         # Display the image
-        st.image(image, caption="ภาพที่ถ่าย - กรุณาดูบาร์โค๊ดจากภาพ", use_container_width=True)
+        st.image(image, caption="ภาพที่ถ่าย - กรุณาดูบาร์โค๊ดจากภาพ", width='stretch')
         
         # Since we can't decode barcode without pyzbar on cloud,
         # we'll help user by showing the image and asking them to type
@@ -51,7 +51,7 @@ def barcode_scanner_component():
                 help="ดูบาร์โค๊ดจากภาพแล้วพิมพ์"
             )
         with col2:
-            if st.button("✅ ยืนยัน", key="confirm_barcode", use_container_width=True):
+            if st.button("✅ ยืนยัน", key="confirm_barcode", width='stretch'):
                 if barcode_input:
                     return barcode_input.strip()
         

@@ -54,7 +54,7 @@ def main():
                             st.write(f"**สร้างเมื่อ:** {user.created_at.strftime('%d/%m/%Y %H:%M')}")
                         
                         with col2:
-                            if st.button("✏️ แก้ไข", key=f"edit_{user.id}", use_container_width=True):
+                            if st.button("✏️ แก้ไข", key=f"edit_{user.id}", width='stretch'):
                                 st.session_state[f"editing_user_{user.id}"] = True
                                 st.rerun()
                             
@@ -62,7 +62,7 @@ def main():
                             if user.id == st.session_state.user_id:
                                 st.info("⚠️ ไม่สามารถลบตัวเองได้")
                             else:
-                                if st.button("🗑️ ลบ", key=f"delete_{user.id}", use_container_width=True):
+                                if st.button("🗑️ ลบ", key=f"delete_{user.id}", width='stretch'):
                                     st.session_state[f"confirm_delete_user_{user.id}"] = True
                                     st.rerun()
                                 
@@ -71,7 +71,7 @@ def main():
                                     st.warning(f"⚠️ คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ {user.username}?")
                                     col_yes, col_no = st.columns(2)
                                     with col_yes:
-                                        if st.button("✅ ยืนยัน", key=f"yes_delete_user_{user.id}", use_container_width=True):
+                                        if st.button("✅ ยืนยัน", key=f"yes_delete_user_{user.id}", width='stretch'):
                                             try:
                                                 session.delete(user)
                                                 session.commit()
@@ -82,12 +82,12 @@ def main():
                                                 session.rollback()
                                                 st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                     with col_no:
-                                        if st.button("❌ ยกเลิก", key=f"no_delete_user_{user.id}", use_container_width=True):
+                                        if st.button("❌ ยกเลิก", key=f"no_delete_user_{user.id}", width='stretch'):
                                             st.session_state[f"confirm_delete_user_{user.id}"] = False
                                             st.rerun()
                         
                         with col3:
-                            if st.button("🔑 เปลี่ยนรหัสผ่าน", key=f"change_pass_{user.id}", use_container_width=True):
+                            if st.button("🔑 เปลี่ยนรหัสผ่าน", key=f"change_pass_{user.id}", width='stretch'):
                                 st.session_state[f"changing_pass_{user.id}"] = True
                                 st.rerun()
                         
@@ -105,7 +105,7 @@ def main():
                                 
                                 col_save, col_cancel = st.columns(2)
                                 with col_save:
-                                    if st.form_submit_button("💾 บันทึก", use_container_width=True):
+                                    if st.form_submit_button("💾 บันทึก", width='stretch'):
                                         if new_username:
                                             try:
                                                 # Check if username already exists (except current user)
@@ -130,7 +130,7 @@ def main():
                                             st.warning("⚠️ กรุณากรอกชื่อผู้ใช้")
                                 
                                 with col_cancel:
-                                    if st.form_submit_button("❌ ยกเลิก", use_container_width=True):
+                                    if st.form_submit_button("❌ ยกเลิก", width='stretch'):
                                         st.session_state[f"editing_user_{user.id}"] = False
                                         st.rerun()
                         
@@ -143,7 +143,7 @@ def main():
                                 
                                 col_save, col_cancel = st.columns(2)
                                 with col_save:
-                                    if st.form_submit_button("💾 เปลี่ยนรหัสผ่าน", use_container_width=True):
+                                    if st.form_submit_button("💾 เปลี่ยนรหัสผ่าน", width='stretch'):
                                         if new_password:
                                             if new_password == confirm_password:
                                                 try:
@@ -161,7 +161,7 @@ def main():
                                             st.warning("⚠️ กรุณากรอกรหัสผ่าน")
                                 
                                 with col_cancel:
-                                    if st.form_submit_button("❌ ยกเลิก", use_container_width=True):
+                                    if st.form_submit_button("❌ ยกเลิก", width='stretch'):
                                         st.session_state[f"changing_pass_{user.id}"] = False
                                         st.rerun()
             else:
@@ -180,7 +180,7 @@ def main():
                 confirm_password = st.text_input("ยืนยันรหัสผ่าน *", type="password", placeholder="confirm password")
                 role = st.selectbox("บทบาท *", ["staff", "admin"], index=0)
                 
-                if st.form_submit_button("➕ เพิ่มผู้ใช้", type="primary", use_container_width=True):
+                if st.form_submit_button("➕ เพิ่มผู้ใช้", type="primary", width='stretch'):
                     if username and password:
                         if password == confirm_password:
                             # Check if username exists
@@ -217,7 +217,7 @@ def main():
         new_password = st.text_input("รหัสผ่านใหม่", type="password")
         confirm_new_password = st.text_input("ยืนยันรหัสผ่านใหม่", type="password")
         
-        if st.form_submit_button("🔑 เปลี่ยนรหัสผ่าน", type="primary", use_container_width=True):
+        if st.form_submit_button("🔑 เปลี่ยนรหัสผ่าน", type="primary", width='stretch'):
             session = get_session()
             try:
                 user = session.query(User).filter(User.id == st.session_state.user_id).first()
@@ -267,7 +267,7 @@ def main():
                 if is_member:
                     member_code = st.text_input("รหัสสมาชิก (เว้นว่างเพื่อสร้างอัตโนมัติ)", placeholder="M000001")
                 
-                if st.form_submit_button("➕ เพิ่มลูกค้า", type="primary", use_container_width=True):
+                if st.form_submit_button("➕ เพิ่มลูกค้า", type="primary", width='stretch'):
                     if customer_name:
                         session = get_session()
                         try:
@@ -350,28 +350,28 @@ def main():
                                         st.write(f"**เยี่ยมล่าสุด:** {membership.last_visit.strftime('%d/%m/%Y %H:%M')}")
                             
                             # View purchase history
-                            if st.button("📊 ดูประวัติการซื้อ", key=f"history_{customer.id}", use_container_width=True):
+                            if st.button("📊 ดูประวัติการซื้อ", key=f"history_{customer.id}", width='stretch'):
                                 st.session_state[f"view_history_{customer.id}"] = True
                                 st.rerun()
                         
                         with col3:
-                            if st.button("✏️ แก้ไข", key=f"edit_customer_{customer.id}", use_container_width=True):
+                            if st.button("✏️ แก้ไข", key=f"edit_customer_{customer.id}", width='stretch'):
                                 st.session_state[f"editing_customer_{customer.id}"] = True
                                 st.rerun()
                             
                             if customer.is_member:
-                                if st.button("⭐ ยกเลิกสมาชิก", key=f"cancel_member_{customer.id}", use_container_width=True):
+                                if st.button("⭐ ยกเลิกสมาชิก", key=f"cancel_member_{customer.id}", width='stretch'):
                                     st.session_state[f"cancel_member_{customer.id}"] = True
                                     st.rerun()
                             else:
-                                if st.button("⭐ สมัครสมาชิก", key=f"make_member_{customer.id}", use_container_width=True):
+                                if st.button("⭐ สมัครสมาชิก", key=f"make_member_{customer.id}", width='stretch'):
                                     create_membership(customer.id)
                                     customer.is_member = True
                                     session.commit()
                                     st.success("✅ สมัครสมาชิกสำเร็จ")
                                     st.rerun()
                             
-                            if st.button("🗑️ ลบ", key=f"delete_customer_{customer.id}", use_container_width=True):
+                            if st.button("🗑️ ลบ", key=f"delete_customer_{customer.id}", width='stretch'):
                                 st.session_state[f"confirm_delete_customer_{customer.id}"] = True
                                 st.rerun()
                             
@@ -380,7 +380,7 @@ def main():
                                 st.warning(f"⚠️ คุณแน่ใจหรือไม่ที่จะลบลุกค้า {customer.name}?")
                                 col_yes, col_no = st.columns(2)
                                 with col_yes:
-                                    if st.button("✅ ยืนยัน", key=f"yes_delete_customer_{customer.id}", use_container_width=True):
+                                    if st.button("✅ ยืนยัน", key=f"yes_delete_customer_{customer.id}", width='stretch'):
                                         try:
                                             session.delete(customer)
                                             session.commit()
@@ -391,7 +391,7 @@ def main():
                                             session.rollback()
                                             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                 with col_no:
-                                    if st.button("❌ ยกเลิก", key=f"no_delete_customer_{customer.id}", use_container_width=True):
+                                    if st.button("❌ ยกเลิก", key=f"no_delete_customer_{customer.id}", width='stretch'):
                                         st.session_state[f"confirm_delete_customer_{customer.id}"] = False
                                         st.rerun()
                         
@@ -406,7 +406,7 @@ def main():
                                 
                                 col_save, col_cancel = st.columns(2)
                                 with col_save:
-                                    if st.form_submit_button("💾 บันทึก", use_container_width=True):
+                                    if st.form_submit_button("💾 บันทึก", width='stretch'):
                                         try:
                                             customer.name = new_name
                                             customer.phone = new_phone if new_phone else None
@@ -421,7 +421,7 @@ def main():
                                             session.rollback()
                                             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                 with col_cancel:
-                                    if st.form_submit_button("❌ ยกเลิก", use_container_width=True):
+                                    if st.form_submit_button("❌ ยกเลิก", width='stretch'):
                                         st.session_state[f"editing_customer_{customer.id}"] = False
                                         st.rerun()
                         
@@ -476,7 +476,7 @@ def main():
                     if usage_limit == 0:
                         usage_limit = None
                 
-                if st.form_submit_button("➕ เพิ่มคูปอง", type="primary", use_container_width=True):
+                if st.form_submit_button("➕ เพิ่มคูปอง", type="primary", width='stretch'):
                     if coupon_code and coupon_name:
                         session = get_session()
                         try:
@@ -546,24 +546,24 @@ def main():
                             st.write(f"**สถานะ:** {'เปิดใช้งาน' if coupon.is_active else 'ปิดใช้งาน'}")
                         
                         with col3:
-                            if st.button("✏️ แก้ไข", key=f"edit_coupon_{coupon.id}", use_container_width=True):
+                            if st.button("✏️ แก้ไข", key=f"edit_coupon_{coupon.id}", width='stretch'):
                                 st.session_state[f"editing_coupon_{coupon.id}"] = True
                                 st.rerun()
                             
                             if coupon.is_active:
-                                if st.button("❌ ปิดใช้งาน", key=f"deactivate_coupon_{coupon.id}", use_container_width=True):
+                                if st.button("❌ ปิดใช้งาน", key=f"deactivate_coupon_{coupon.id}", width='stretch'):
                                     coupon.is_active = False
                                     session.commit()
                                     st.success("✅ ปิดใช้งานคูปองสำเร็จ")
                                     st.rerun()
                             else:
-                                if st.button("✅ เปิดใช้งาน", key=f"activate_coupon_{coupon.id}", use_container_width=True):
+                                if st.button("✅ เปิดใช้งาน", key=f"activate_coupon_{coupon.id}", width='stretch'):
                                     coupon.is_active = True
                                     session.commit()
                                     st.success("✅ เปิดใช้งานคูปองสำเร็จ")
                                     st.rerun()
                             
-                            if st.button("🗑️ ลบ", key=f"delete_coupon_{coupon.id}", use_container_width=True):
+                            if st.button("🗑️ ลบ", key=f"delete_coupon_{coupon.id}", width='stretch'):
                                 st.session_state[f"confirm_delete_coupon_{coupon.id}"] = True
                                 st.rerun()
                             
@@ -572,7 +572,7 @@ def main():
                                 st.warning(f"⚠️ คุณแน่ใจหรือไม่ที่จะลบคูปอง {coupon.code}?")
                                 col_yes, col_no = st.columns(2)
                                 with col_yes:
-                                    if st.button("✅ ยืนยัน", key=f"yes_delete_coupon_{coupon.id}", use_container_width=True):
+                                    if st.button("✅ ยืนยัน", key=f"yes_delete_coupon_{coupon.id}", width='stretch'):
                                         try:
                                             session.delete(coupon)
                                             session.commit()
@@ -583,7 +583,7 @@ def main():
                                             session.rollback()
                                             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                 with col_no:
-                                    if st.button("❌ ยกเลิก", key=f"no_delete_coupon_{coupon.id}", use_container_width=True):
+                                    if st.button("❌ ยกเลิก", key=f"no_delete_coupon_{coupon.id}", width='stretch'):
                                         st.session_state[f"confirm_delete_coupon_{coupon.id}"] = False
                                         st.rerun()
             else:
@@ -604,7 +604,7 @@ def main():
         with col1:
             if today_attendance and today_attendance.clock_in and not today_attendance.clock_out:
                 st.info(f"✅ เข้างานแล้ว: {today_attendance.clock_in.strftime('%H:%M:%S')}")
-                if st.button("🕐 ออกงาน", type="primary", use_container_width=True, key="clock_out_btn"):
+                if st.button("🕐 ออกงาน", type="primary", width='stretch', key="clock_out_btn"):
                     result = clock_out(st.session_state.user_id)
                     if result:
                         st.success(f"✅ ออกงานแล้ว: {result.clock_out.strftime('%H:%M:%S')}")
@@ -617,7 +617,7 @@ def main():
                 st.success(f"✅ ออกงาน: {today_attendance.clock_out.strftime('%H:%M:%S')}")
                 st.info(f"⏱️ ทำงานทั้งหมด: {today_attendance.total_hours:.2f} ชั่วโมง")
             else:
-                if st.button("🕐 เข้างาน", type="primary", use_container_width=True, key="clock_in_btn"):
+                if st.button("🕐 เข้างาน", type="primary", width='stretch', key="clock_in_btn"):
                     result = clock_in(st.session_state.user_id)
                     if result:
                         st.success(f"✅ เข้างานแล้ว: {result.clock_in.strftime('%H:%M:%S')}")
@@ -627,7 +627,7 @@ def main():
         
         with col2:
             # View attendance history
-            if st.button("📊 ดูประวัติการทำงาน", use_container_width=True, key="view_attendance_history"):
+            if st.button("📊 ดูประวัติการทำงาน", width='stretch', key="view_attendance_history"):
                 st.session_state['view_attendance_history'] = True
                 st.rerun()
         
@@ -662,7 +662,7 @@ def main():
                 
                 import pandas as pd
                 df = pd.DataFrame(attendance_data)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, width='stretch', hide_index=True)
                 
                 # Summary
                 total_hours = sum(a.total_hours for a in attendances if a.total_hours)
@@ -743,7 +743,7 @@ def main():
                             break_duration = st.number_input("เวลาพัก (นาที)", min_value=0, value=0, key="break_duration_input")
                             shift_notes = st.text_area("หมายเหตุ", key="shift_notes_input")
                             
-                            if st.form_submit_button("➕ สร้างกะงาน", use_container_width=True):
+                            if st.form_submit_button("➕ สร้างกะงาน", width='stretch'):
                                 shift_datetime = datetime.combine(shift_date, datetime.min.time())
                                 shift_start_dt = datetime.combine(shift_date, shift_start)
                                 shift_end_dt = datetime.combine(shift_date, shift_end)

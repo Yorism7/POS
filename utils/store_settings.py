@@ -11,42 +11,83 @@ import json
 def ensure_store_settings_table():
     """
     ตรวจสอบและสร้าง table store_settings ถ้ายังไม่มี
+    รองรับ retry สำหรับ SSL connection errors
     """
-    try:
-        # Try to query to check if table exists
-        session = get_session()
+    import time
+    max_retries = 3
+    retry_delay = 1  # seconds
+    
+    for attempt in range(max_retries):
         try:
-            session.query(StoreSetting).limit(1).all()
-            session.close()
-            return True
-        except Exception as e:
-            session.close()
-            error_msg = str(e).lower()
-            if 'does not exist' in error_msg or 'no such table' in error_msg or 'relation' in error_msg or 'undefinedtable' in error_msg:
-                print(f"[INFO] Creating store_settings table...")
-                StoreSetting.__table__.create(bind=engine, checkfirst=True)
-                print(f"[INFO] ✅ store_settings table created successfully")
-                # Initialize default settings
-                try:
-                    init_default_settings()
-                    print(f"[INFO] ✅ Default settings initialized")
-                except Exception as e3:
-                    print(f"[WARNING] Failed to initialize default settings: {e3}")
+            # Try to query to check if table exists
+            session = get_session()
+            try:
+                session.query(StoreSetting).limit(1).all()
+                session.close()
                 return True
-            else:
-                raise
-    except Exception as e:
-        print(f"[ERROR] Failed to ensure store_settings table: {e}")
-        import traceback
-        traceback.print_exc()
-        # Try to create table directly
-        try:
-            StoreSetting.__table__.create(bind=engine, checkfirst=True)
-            print(f"[INFO] ✅ store_settings table created via fallback")
-            return True
-        except Exception as e2:
-            print(f"[ERROR] Fallback table creation also failed: {e2}")
-        return False
+            except Exception as e:
+                session.close()
+                error_msg = str(e).lower()
+                
+                # Check if it's a table not found error
+                if 'does not exist' in error_msg or 'no such table' in error_msg or 'relation' in error_msg or 'undefinedtable' in error_msg:
+                    print(f"[INFO] Creating store_settings table...")
+                    try:
+                        StoreSetting.__table__.create(bind=engine, checkfirst=True)
+                        print(f"[INFO] ✅ store_settings table created successfully")
+                        # Initialize default settings
+                        try:
+                            init_default_settings()
+                            print(f"[INFO] ✅ Default settings initialized")
+                        except Exception as e3:
+                            print(f"[WARNING] Failed to initialize default settings: {e3}")
+                        return True
+                    except Exception as create_error:
+                        print(f"[ERROR] Failed to create table: {create_error}")
+                        return False
+                # Check if it's an SSL/connection error (retry)
+                elif 'ssl' in error_msg or 'connection' in error_msg or 'closed unexpectedly' in error_msg:
+                    if attempt < max_retries - 1:
+                        print(f"[WARNING] Connection error (attempt {attempt + 1}/{max_retries}): {str(e)[:100]}")
+                        print(f"[INFO] Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                    else:
+                        print(f"[ERROR] Connection failed after {max_retries} attempts: {e}")
+                        # Try to create table directly as fallback
+                        try:
+                            StoreSetting.__table__.create(bind=engine, checkfirst=True)
+                            print(f"[INFO] ✅ store_settings table created via fallback")
+                            return True
+                        except Exception as e2:
+                            print(f"[ERROR] Fallback table creation also failed: {e2}")
+                        return False
+                else:
+                    # Other errors - don't retry
+                    raise
+        except Exception as e:
+            if attempt < max_retries - 1:
+                error_msg = str(e).lower()
+                if 'ssl' in error_msg or 'connection' in error_msg or 'closed unexpectedly' in error_msg:
+                    print(f"[WARNING] Connection error (attempt {attempt + 1}/{max_retries}): {str(e)[:100]}")
+                    print(f"[INFO] Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+            print(f"[ERROR] Failed to ensure store_settings table: {e}")
+            import traceback
+            traceback.print_exc()
+            # Try to create table directly as final fallback
+            try:
+                StoreSetting.__table__.create(bind=engine, checkfirst=True)
+                print(f"[INFO] ✅ store_settings table created via fallback")
+                return True
+            except Exception as e2:
+                print(f"[ERROR] Fallback table creation also failed: {e2}")
+            return False
+    
+    return False
 
 def get_setting(key: str, default: str = "") -> str:
     """

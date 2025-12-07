@@ -71,13 +71,13 @@ def main():
             if total_pages > 1:
                 col_prev, col_page, col_next = st.columns([1, 3, 1])
                 with col_prev:
-                    if st.button("◀️ ก่อนหน้า", disabled=(current_page == 1), use_container_width=True):
+                    if st.button("◀️ ก่อนหน้า", disabled=(current_page == 1), width='stretch'):
                         st.session_state.product_page = max(1, current_page - 1)
                         st.rerun()
                 with col_page:
                     st.write(f"หน้า {current_page} / {total_pages}")
                 with col_next:
-                    if st.button("ถัดไป ▶️", disabled=(current_page == total_pages), use_container_width=True):
+                    if st.button("ถัดไป ▶️", disabled=(current_page == total_pages), width='stretch'):
                         st.session_state.product_page = min(total_pages, current_page + 1)
                         st.rerun()
             
@@ -101,11 +101,11 @@ def main():
                             st.write(f"**ขั้นต่ำ:** {product.min_stock:.2f} {product.unit}")
                         
                         with col3:
-                            if st.button("✏️ แก้ไข", key=f"edit_{product.id}", use_container_width=True):
+                            if st.button("✏️ แก้ไข", key=f"edit_{product.id}", width='stretch'):
                                 st.session_state[f"editing_product_{product.id}"] = True
                                 st.rerun()
                             
-                            if st.button("🗑️ ลบ", key=f"delete_{product.id}", use_container_width=True):
+                            if st.button("🗑️ ลบ", key=f"delete_{product.id}", width='stretch'):
                                 st.session_state[f"confirm_delete_{product.id}"] = True
                                 st.rerun()
                             
@@ -114,7 +114,7 @@ def main():
                                 st.warning(f"⚠️ คุณแน่ใจหรือไม่ที่จะลบ {product.name}?")
                                 col_yes, col_no = st.columns(2)
                                 with col_yes:
-                                    if st.button("✅ ยืนยัน", key=f"yes_delete_{product.id}", use_container_width=True):
+                                    if st.button("✅ ยืนยัน", key=f"yes_delete_{product.id}", width='stretch'):
                                         try:
                                             session.delete(product)
                                             session.commit()
@@ -125,7 +125,7 @@ def main():
                                             session.rollback()
                                             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                 with col_no:
-                                    if st.button("❌ ยกเลิก", key=f"no_delete_{product.id}", use_container_width=True):
+                                    if st.button("❌ ยกเลิก", key=f"no_delete_{product.id}", width='stretch'):
                                         st.session_state[f"confirm_delete_{product.id}"] = False
                                         st.rerun()
                         
@@ -154,7 +154,7 @@ def main():
                                 
                                 col_save, col_cancel = st.columns(2)
                                 with col_save:
-                                    if st.form_submit_button("💾 บันทึก", use_container_width=True):
+                                    if st.form_submit_button("💾 บันทึก", width='stretch'):
                                         try:
                                             # Check barcode uniqueness if changed
                                             if new_barcode and new_barcode.strip() and new_barcode.strip() != (product.barcode or ""):
@@ -186,7 +186,7 @@ def main():
                                             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                 
                                 with col_cancel:
-                                    if st.form_submit_button("❌ ยกเลิก", use_container_width=True):
+                                    if st.form_submit_button("❌ ยกเลิก", width='stretch'):
                                         st.session_state[f"editing_product_{product.id}"] = False
                                         st.rerun()
             else:
@@ -252,7 +252,7 @@ def main():
                     stock_quantity = st.number_input("จำนวนสต็อค *", min_value=0.0, value=0.0)
                     min_stock = st.number_input("จำนวนขั้นต่ำ *", min_value=0.0, value=0.0)
                 
-                if st.form_submit_button("➕ เพิ่มสินค้า", type="primary", use_container_width=True):
+                if st.form_submit_button("➕ เพิ่มสินค้า", type="primary", width='stretch'):
                     if name and unit:
                         with st.spinner("⏳ กำลังเพิ่มสินค้า..."):
                             try:
@@ -328,7 +328,7 @@ def main():
                     st.metric("รวมต้นทุน", format_currency(total_cost))
                     reason = st.text_input("เหตุผล", placeholder="เช่น ซื้อเข้า, รับของ")
                 
-                if st.form_submit_button("📥 บันทึกสต็อคเข้า", type="primary", use_container_width=True):
+                if st.form_submit_button("📥 บันทึกสต็อคเข้า", type="primary", width='stretch'):
                     with st.spinner("⏳ กำลังบันทึกสต็อคเข้า..."):
                         try:
                             product = session.query(Product).filter(Product.id == product_id).first()
@@ -394,7 +394,7 @@ def main():
                     st.metric("รวมต้นทุน", format_currency(total_cost))
                     reason = st.text_input("เหตุผล *", placeholder="เช่น เสียหาย, ขาย, ใช้")
                 
-                if st.form_submit_button("📤 บันทึกสต็อคออก", type="primary", use_container_width=True):
+                if st.form_submit_button("📤 บันทึกสต็อคออก", type="primary", width='stretch'):
                     if not reason:
                         st.warning("⚠️ กรุณากรอกเหตุผล")
                     elif product and quantity > product.stock_quantity:
@@ -469,7 +469,7 @@ def main():
                 })
             
             df = pd.DataFrame(trans_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width='stretch', hide_index=True)
         else:
             st.info("ไม่มีประวัติสต็อค")
     finally:

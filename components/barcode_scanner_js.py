@@ -248,7 +248,7 @@ def barcode_scanner_component():
         # Try to decode using JavaScript approach
         # Since we can't easily decode in Python without pyzbar,
         # we'll show the image and ask user to enter manually
-        st.image(image, caption="ภาพที่ถ่าย", use_container_width=True)
+        st.image(image, caption="ภาพที่ถ่าย", width='stretch')
         st.info("💡 เนื่องจากข้อจำกัดของ Streamlit Cloud กรุณาพิมพ์บาร์โค๊ดด้านล่าง")
         
         barcode_input = st.text_input(

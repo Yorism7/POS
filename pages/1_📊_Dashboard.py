@@ -90,7 +90,7 @@ def main():
                 yaxis_title="ยอดขาย (฿)",
                 hovermode='x unified'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("ยังไม่มีข้อมูลยอดขาย")
     
@@ -112,7 +112,7 @@ def main():
                 yaxis_title="จำนวนที่ขาย",
                 xaxis_tickangle=-45
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("ยังไม่มีข้อมูลเมนูขายดี")
     
@@ -136,7 +136,7 @@ def main():
         df_low_stock = pd.DataFrame(low_stock_data)
         st.dataframe(
             df_low_stock,
-            use_container_width=True,
+            width='stretch',
             hide_index=True
         )
     else:
@@ -167,7 +167,7 @@ def main():
             df_recent = pd.DataFrame(sales_data)
             st.dataframe(
                 df_recent,
-                use_container_width=True,
+                width='stretch',
                 hide_index=True
             )
         else:

@@ -50,13 +50,13 @@ def main():
             if total_pages > 1:
                 col_prev, col_page, col_next = st.columns([1, 3, 1])
                 with col_prev:
-                    if st.button("◀️ ก่อนหน้า", disabled=(current_page == 1), use_container_width=True, key="cat_prev"):
+                    if st.button("◀️ ก่อนหน้า", disabled=(current_page == 1), width='stretch', key="cat_prev"):
                         st.session_state.category_page = max(1, current_page - 1)
                         st.rerun()
                 with col_page:
                     st.write(f"หน้า {current_page} / {total_pages}")
                 with col_next:
-                    if st.button("ถัดไป ▶️", disabled=(current_page == total_pages), use_container_width=True, key="cat_next"):
+                    if st.button("ถัดไป ▶️", disabled=(current_page == total_pages), width='stretch', key="cat_next"):
                         st.session_state.category_page = min(total_pages, current_page + 1)
                         st.rerun()
             
@@ -74,7 +74,7 @@ def main():
                             st.write(f"**จำนวนสินค้า:** {product_count} รายการ")
                         
                         with col2:
-                            if st.button("✏️ แก้ไข", key=f"edit_cat_{category.id}", use_container_width=True):
+                            if st.button("✏️ แก้ไข", key=f"edit_cat_{category.id}", width='stretch'):
                                 st.session_state[f"editing_category_{category.id}"] = True
                                 st.rerun()
                         
@@ -82,7 +82,7 @@ def main():
                             if product_count > 0:
                                 st.warning(f"⚠️ มีสินค้า {product_count} รายการในหมวดหมู่นี้")
                             else:
-                                if st.button("🗑️ ลบ", key=f"delete_cat_{category.id}", use_container_width=True):
+                                if st.button("🗑️ ลบ", key=f"delete_cat_{category.id}", width='stretch'):
                                     st.session_state[f"confirm_delete_category_{category.id}"] = True
                                     st.rerun()
                             
@@ -91,7 +91,7 @@ def main():
                                 st.warning(f"⚠️ คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่ {category.name}?")
                                 col_yes, col_no = st.columns(2)
                                 with col_yes:
-                                    if st.button("✅ ยืนยัน", key=f"yes_delete_cat_{category.id}", use_container_width=True):
+                                    if st.button("✅ ยืนยัน", key=f"yes_delete_cat_{category.id}", width='stretch'):
                                         try:
                                             session.delete(category)
                                             session.commit()
@@ -102,7 +102,7 @@ def main():
                                             session.rollback()
                                             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                 with col_no:
-                                    if st.button("❌ ยกเลิก", key=f"no_delete_cat_{category.id}", use_container_width=True):
+                                    if st.button("❌ ยกเลิก", key=f"no_delete_cat_{category.id}", width='stretch'):
                                         st.session_state[f"confirm_delete_category_{category.id}"] = False
                                         st.rerun()
                         
@@ -115,7 +115,7 @@ def main():
                                 
                                 col_save, col_cancel = st.columns(2)
                                 with col_save:
-                                    if st.form_submit_button("💾 บันทึก", use_container_width=True):
+                                    if st.form_submit_button("💾 บันทึก", width='stretch'):
                                         if new_name:
                                             try:
                                                 # Check if name already exists
@@ -140,7 +140,7 @@ def main():
                                             st.warning("⚠️ กรุณากรอกชื่อหมวดหมู่")
                                 
                                 with col_cancel:
-                                    if st.form_submit_button("❌ ยกเลิก", use_container_width=True):
+                                    if st.form_submit_button("❌ ยกเลิก", width='stretch'):
                                         st.session_state[f"editing_category_{category.id}"] = False
                                         st.rerun()
             else:
@@ -157,7 +157,7 @@ def main():
                 name = st.text_input("ชื่อหมวดหมู่ *", placeholder="เช่น อาหารแห้ง")
                 description = st.text_area("คำอธิบาย", placeholder="คำอธิบายหมวดหมู่...")
                 
-                if st.form_submit_button("➕ เพิ่มหมวดหมู่", type="primary", use_container_width=True):
+                if st.form_submit_button("➕ เพิ่มหมวดหมู่", type="primary", width='stretch'):
                     if name:
                         # Check if category exists
                         existing = session.query(Category).filter(Category.name == name).first()

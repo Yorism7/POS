@@ -253,7 +253,7 @@ def show_supabase_login_page():
             email = st.text_input("📧 Email", placeholder="your@email.com")
             password = st.text_input("🔒 รหัสผ่าน", type="password")
             remember_me = st.checkbox("💾 จดจำการล็อคอิน")
-            submit = st.form_submit_button("เข้าสู่ระบบ", type="primary", use_container_width=True)
+            submit = st.form_submit_button("เข้าสู่ระบบ", type="primary", width='stretch')
             
             if submit:
                 if email and password:
@@ -286,7 +286,7 @@ def show_supabase_login_page():
                 confirm_password = st.text_input("🔒 ยืนยันรหัสผ่าน", type="password", key="signup_confirm")
                 username = st.text_input("👤 ชื่อผู้ใช้", key="signup_username")
                 role = st.selectbox("🎭 บทบาท", ["staff", "admin"], key="signup_role")
-                signup_submit = st.form_submit_button("สมัครสมาชิก", type="primary", use_container_width=True)
+                signup_submit = st.form_submit_button("สมัครสมาชิก", type="primary", width='stretch')
                 
                 if signup_submit:
                     if new_email and new_password and confirm_password:
@@ -315,7 +315,7 @@ def show_supabase_login_page():
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("🔵 Google", use_container_width=True, type="primary"):
+            if st.button("🔵 Google", width='stretch', type="primary"):
                 oauth_url = supabase_oauth_login('google')
                 if oauth_url:
                     st.markdown(f'<meta http-equiv="refresh" content="0; url={oauth_url}">', unsafe_allow_html=True)
@@ -324,7 +324,7 @@ def show_supabase_login_page():
                     st.error("❌ ไม่สามารถเริ่ม OAuth flow ได้")
         
         with col2:
-            if st.button("⚫ GitHub", use_container_width=True, type="primary"):
+            if st.button("⚫ GitHub", width='stretch', type="primary"):
                 oauth_url = supabase_oauth_login('github')
                 if oauth_url:
                     st.markdown(f'<meta http-equiv="refresh" content="0; url={oauth_url}">', unsafe_allow_html=True)

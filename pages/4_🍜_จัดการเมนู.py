@@ -62,13 +62,13 @@ def main():
             if total_pages > 1:
                 col_prev, col_page, col_next = st.columns([1, 3, 1])
                 with col_prev:
-                    if st.button("◀️ ก่อนหน้า", disabled=(current_page == 1), use_container_width=True, key="menu_prev"):
+                    if st.button("◀️ ก่อนหน้า", disabled=(current_page == 1), width='stretch', key="menu_prev"):
                         st.session_state.menu_page = max(1, current_page - 1)
                         st.rerun()
                 with col_page:
                     st.write(f"หน้า {current_page} / {total_pages}")
                 with col_next:
-                    if st.button("ถัดไป ▶️", disabled=(current_page == total_pages), use_container_width=True, key="menu_next"):
+                    if st.button("ถัดไป ▶️", disabled=(current_page == total_pages), width='stretch', key="menu_next"):
                         st.session_state.menu_page = min(total_pages, current_page + 1)
                         st.rerun()
             
@@ -94,11 +94,11 @@ def main():
                             st.write(f"**อัตรากำไร:** {profit_margin:.2f}%")
                         
                         with col3:
-                            if st.button("✏️ แก้ไข", key=f"edit_{menu.id}", use_container_width=True):
+                            if st.button("✏️ แก้ไข", key=f"edit_{menu.id}", width='stretch'):
                                 st.session_state[f"editing_menu_{menu.id}"] = True
                                 st.rerun()
                             
-                            if st.button("🗑️ ลบ", key=f"delete_{menu.id}", use_container_width=True):
+                            if st.button("🗑️ ลบ", key=f"delete_{menu.id}", width='stretch'):
                                 st.session_state[f"confirm_delete_menu_{menu.id}"] = True
                                 st.rerun()
                             
@@ -107,7 +107,7 @@ def main():
                                 st.warning(f"⚠️ คุณแน่ใจหรือไม่ที่จะลบเมนู {menu.name}?")
                                 col_yes, col_no = st.columns(2)
                                 with col_yes:
-                                    if st.button("✅ ยืนยัน", key=f"yes_delete_menu_{menu.id}", use_container_width=True):
+                                    if st.button("✅ ยืนยัน", key=f"yes_delete_menu_{menu.id}", width='stretch'):
                                         try:
                                             session.delete(menu)
                                             session.commit()
@@ -118,7 +118,7 @@ def main():
                                             session.rollback()
                                             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                 with col_no:
-                                    if st.button("❌ ยกเลิก", key=f"no_delete_menu_{menu.id}", use_container_width=True):
+                                    if st.button("❌ ยกเลิก", key=f"no_delete_menu_{menu.id}", width='stretch'):
                                         st.session_state[f"confirm_delete_menu_{menu.id}"] = False
                                         st.rerun()
                         
@@ -139,7 +139,7 @@ def main():
                             
                             import pandas as pd
                             df_bom = pd.DataFrame(bom_data)
-                            st.dataframe(df_bom, use_container_width=True, hide_index=True)
+                            st.dataframe(df_bom, width='stretch', hide_index=True)
                         else:
                             st.info("ยังไม่มีวัตถุดิบ")
                         
@@ -222,7 +222,7 @@ def main():
                                 
                                 col_save, col_cancel = st.columns(2)
                                 with col_save:
-                                    if st.form_submit_button("💾 บันทึก", use_container_width=True):
+                                    if st.form_submit_button("💾 บันทึก", width='stretch'):
                                         try:
                                             menu.name = new_name
                                             menu.description = new_description
@@ -243,7 +243,7 @@ def main():
                                             st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
                                 
                                 with col_cancel:
-                                    if st.form_submit_button("❌ ยกเลิก", use_container_width=True):
+                                    if st.form_submit_button("❌ ยกเลิก", width='stretch'):
                                         st.session_state[f"editing_menu_{menu.id}"] = False
                                         st.rerun()
             else:
@@ -340,7 +340,7 @@ def main():
                         profit_margin = (estimated_profit / price * 100) if price > 0 else 0
                         st.info(f"💵 กำไรประมาณ: {format_currency(estimated_profit)} ({profit_margin:.2f}%)")
                 
-                if st.form_submit_button("➕ เพิ่มเมนู", type="primary", use_container_width=True):
+                if st.form_submit_button("➕ เพิ่มเมนู", type="primary", width='stretch'):
                     if name and price >= 0:
                         if not st.session_state.bom_items:
                             st.warning("⚠️ กรุณาเพิ่มวัตถุดิบอย่างน้อย 1 รายการ")
