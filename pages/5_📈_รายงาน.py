@@ -11,6 +11,7 @@ from database.db import get_session
 from database.models import Sale, SaleItem, Product, Menu, Customer, Expense
 from utils.expense import get_expense_summary
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 from utils.helpers import format_currency, calculate_menu_cost
 from utils.tax import get_tax_report, generate_tax_invoice
 import io
@@ -21,7 +22,9 @@ def get_sales_report(start_date: datetime, end_date: datetime):
     """Get sales report data"""
     session = get_session()
     try:
-        sales = session.query(Sale).filter(
+        sales = session.query(Sale).options(
+            joinedload(Sale.creator)
+        ).filter(
             Sale.sale_date >= start_date,
             Sale.sale_date <= end_date,
             Sale.is_void == False
@@ -192,7 +195,7 @@ def main():
                     title="ยอดขายรายวัน"
                 )
                 fig.update_layout(height=400, hovermode='x unified')
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
                 
                 # Export button
                 if st.button("📥 Export เป็น Excel"):
@@ -225,7 +228,7 @@ def main():
                 })
             
             df_sales = pd.DataFrame(sales_data)
-            st.dataframe(df_sales, use_container_width=True, hide_index=True)
+            st.dataframe(df_sales, width='stretch', hide_index=True)
         else:
             st.info("ไม่มีข้อมูลการขาย")
     
@@ -295,7 +298,7 @@ def main():
                     height=400,
                     hovermode='x unified'
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             else:
                 st.info("ไม่มีข้อมูลกำไร")
         finally:
@@ -315,7 +318,7 @@ def main():
             df_products.columns = ['ลำดับ', 'ชื่อสินค้า', 'จำนวนที่ขาย', 'ยอดขาย']
             df_products['ยอดขาย'] = df_products['ยอดขาย'].apply(lambda x: format_currency(x))
             
-            st.dataframe(df_products, use_container_width=True, hide_index=True)
+            st.dataframe(df_products, width='stretch', hide_index=True)
             
             # Chart
             fig = px.bar(
@@ -325,7 +328,7 @@ def main():
                 title="สินค้าขายดี 10 อันดับ"
             )
             fig.update_layout(height=400, xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("ไม่มีข้อมูลสินค้าขายดี")
         
@@ -340,7 +343,7 @@ def main():
             df_menus.columns = ['ลำดับ', 'ชื่อเมนู', 'จำนวนที่ขาย', 'ยอดขาย']
             df_menus['ยอดขาย'] = df_menus['revenue'].apply(lambda x: format_currency(x))
             
-            st.dataframe(df_menus, use_container_width=True, hide_index=True)
+            st.dataframe(df_menus, width='stretch', hide_index=True)
             
             # Chart
             fig = px.bar(
@@ -350,7 +353,7 @@ def main():
                 title="เมนูขายดี 10 อันดับ"
             )
             fig.update_layout(height=400, xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("ไม่มีข้อมูลเมนูขายดี")
     
@@ -426,11 +429,11 @@ def main():
                     title="ยอดขายรายชั่วโมง"
                 )
                 fig.update_layout(height=400, xaxis_tickangle=-45)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
                 
                 # Table
                 df_hourly['ยอดขาย'] = df_hourly['ยอดขาย'].apply(lambda x: format_currency(x))
-                st.dataframe(df_hourly, use_container_width=True, hide_index=True)
+                st.dataframe(df_hourly, width='stretch', hide_index=True)
                 
                 # Peak hours
                 peak_hour = df_hourly.loc[df_hourly['ยอดขาย'].str.replace('฿', '').str.replace(',', '').astype(float).idxmax()]
@@ -478,11 +481,11 @@ def main():
                     line=dict(color='green')
                 ))
                 fig.update_layout(title="เปรียบเทียบยอดขาย 7 วันล่าสุด", height=400, hovermode='x unified')
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
                 
                 df_compare['ยอดขาย'] = df_compare['ยอดขาย'].apply(lambda x: format_currency(x))
                 df_compare['กำไร'] = df_compare['กำไร'].apply(lambda x: format_currency(x))
-                st.dataframe(df_compare, use_container_width=True, hide_index=True)
+                st.dataframe(df_compare, width='stretch', hide_index=True)
             
             elif compare_type == "เดือน":
                 # Compare last 6 months
@@ -509,11 +512,11 @@ def main():
                 fig.add_trace(go.Bar(x=df_compare['เดือน'], y=df_compare['ยอดขาย'], name='ยอดขาย'))
                 fig.add_trace(go.Bar(x=df_compare['เดือน'], y=df_compare['กำไร'], name='กำไร'))
                 fig.update_layout(title="เปรียบเทียบยอดขาย 6 เดือนล่าสุด", height=400, barmode='group')
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
                 
                 df_compare['ยอดขาย'] = df_compare['ยอดขาย'].apply(lambda x: format_currency(x))
                 df_compare['กำไร'] = df_compare['กำไร'].apply(lambda x: format_currency(x))
-                st.dataframe(df_compare, use_container_width=True, hide_index=True)
+                st.dataframe(df_compare, width='stretch', hide_index=True)
         finally:
             session.close()
     
@@ -555,7 +558,7 @@ def main():
                     })
                 
                 df_customers = pd.DataFrame(customer_data)
-                st.dataframe(df_customers, use_container_width=True, hide_index=True)
+                st.dataframe(df_customers, width='stretch', hide_index=True)
                 
                 # Chart
                 fig = px.bar(
@@ -565,7 +568,7 @@ def main():
                     title="ลูกค้าที่ซื้อมากที่สุด 10 อันดับ"
                 )
                 fig.update_layout(height=400, xaxis_tickangle=-45)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             else:
                 st.info("ไม่มีข้อมูลลูกค้า")
         finally:
@@ -601,7 +604,7 @@ def main():
         fig.add_trace(go.Bar(name='ค่าใช้จ่าย', x=['สรุป'], y=[total_expenses]))
         fig.add_trace(go.Bar(name='กำไรสุทธิ', x=['สรุป'], y=[net_profit]))
         fig.update_layout(title="สรุปกำไร-ขาดทุน", height=400, barmode='group')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         
         # Expenses by category
         if expense_summary['by_category']:
@@ -610,7 +613,7 @@ def main():
             df_expense = pd.DataFrame(expense_summary['by_category'])
             df_expense['total'] = df_expense['total'].apply(lambda x: format_currency(x))
             df_expense.columns = ['ID', 'หมวดหมู่', 'จำนวนเงิน']
-            st.dataframe(df_expense[['หมวดหมู่', 'จำนวนเงิน']], use_container_width=True, hide_index=True)
+            st.dataframe(df_expense[['หมวดหมู่', 'จำนวนเงิน']], width='stretch', hide_index=True)
     
     elif report_type == "รายงานภาษี":
         st.subheader("📋 รายงานภาษีมูลค่าเพิ่ม")
@@ -643,7 +646,7 @@ def main():
                 })
             
             df_tax = pd.DataFrame(tax_data)
-            st.dataframe(df_tax, use_container_width=True, hide_index=True)
+            st.dataframe(df_tax, width='stretch', hide_index=True)
         
         # Generate tax invoice for specific sale
         st.divider()
@@ -659,7 +662,7 @@ def main():
                 invoice_text,
                 file_name=f"tax_invoice_{sale_id_input:06d}.txt",
                 mime="text/plain",
-                use_container_width=True
+                width='stretch'
             )
 
 if __name__ == "__main__":
